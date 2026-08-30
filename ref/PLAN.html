@@ -693,12 +693,14 @@
     </div>
 
     <h3>Player identity</h3>
-    <p>Every player carries three identifiers: a <strong>name</strong>, a <strong>color</strong>, and an <strong>animal emoji</strong> assigned at random on creation. Emoji are drawn without replacement so no two players in a game share one, and the emoji shows on the tab at <em>every</em> size — never introduced only once things get tight, which would force people to learn a new identifier at the worst possible moment.</p>
-    <p>Random assignment is a starting point, not a verdict. Tapping the emoji in a player's panel opens the pool to pick a different one, and saved rosters remember the choice.</p>
+    <p>Every player carries three identifiers: a <strong>name</strong>, a <strong>colour</strong>, and an <strong>emoji</strong>, both assigned at random on creation. The emoji shows on the tab at <em>every</em> size — never introduced only once things get tight, which would force people to learn a new identifier at the worst possible moment.</p>
+    <p><strong>The curated pool seeds the defaults and nothing else.</strong> A player may type any emoji at all, or any character, and pick any colour from the system picker. Two players may share an emoji or a colour if that is what they want, and they may choose something that renders badly on someone else's device. None of that is the app's business — it only has to guarantee a sensible <em>starting</em> point.</p>
+    <p>That also keeps the interface small: an emoji field and a colour swatch on each row, rather than two large grids of things we decided were acceptable.</p>
     <p>Animals rather than people: no skin-tone modifiers to handle, no gendered defaults, and the silhouettes are more distinct. This is also what retires initials — with 16 players, colliding initials are near-certain (two Sams both read as "S"), while a fox and a whale never collide at any size.</p>
 
-    <h4>The pool</h4>
-    <p>Hand-curated, not the whole Unicode animal block. Two filters: <strong>distinct silhouettes</strong> at 20px — 🐶🐕🦮🐩 are one shape rather than four, and 🐻🐨🐼 are three brown circles — and <strong>universal support</strong>, nothing newer than Unicode 9.0, so an older tablet at game night renders animals instead of tofu boxes. Around 48 entries, comfortably more than the 16-player cap.</p>
+    <h4>The default pool</h4>
+    <p>Hand-curated animals, not the whole Unicode block, and used only to pick starting emoji. Two filters: <strong>distinct silhouettes</strong> at 20px — 🐶🐕🦮🐩 are one shape rather than four, and 🐻🐨🐼 are three brown circles — and <strong>universal support</strong>, nothing newer than Unicode 9.0, so an older tablet at game night renders animals instead of tofu boxes.</p>
+    <p>Defaults prefer an unused animal and an unused colour, so a fresh table starts distinguishable without anyone having to think about it. Once the pool is exhausted, or once someone edits, duplicates are simply allowed.</p>
     <p>Emoji ignore CSS <code>color</code> and render in their own palette, so they need a light disc behind them on the tab; a dark animal on a dark player color would otherwise disappear.</p>
 
     <h3>How many fit</h3>
@@ -1071,7 +1073,7 @@
           </tr>
           <tr>
             <td>Emoji render inconsistently across platforms, or fall back to tofu boxes on older devices</td>
-            <td>Curated pool capped at Unicode 9.0; silhouettes chosen to stay distinct at 20px; a light disc behind the glyph so dark animals survive dark tab colors</td>
+            <td>Defaults come from a pool capped at Unicode 9.0 with silhouettes distinct at 20px, so the out-of-the-box case is always safe. A hand-picked emoji that renders badly is the player's own choice and is left alone</td>
             <td class="num">1.0</td>
           </tr>
           <tr>

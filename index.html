@@ -201,10 +201,18 @@
   #sheet h2 { margin: 0; font-size: 12px; letter-spacing: .16em; text-transform: uppercase; color: var(--ink-dim); }
   .plist { display: flex; flex-direction: column; gap: 6px; }
   .prow2 { display: flex; align-items: center; gap: 8px; background: #232A2D; border-radius: 9px; padding: 6px 8px; }
-  .prow2 .chip {
-    width: 38px; height: 38px; border-radius: 9px; border: 0; cursor: pointer;
-    display: flex; align-items: center; justify-content: center; font-size: 20px;
+  /* Emoji doubles as the colour swatch: one control shows both. */
+  .prow2 .emo {
+    width: 42px; height: 42px; flex: none; border-radius: 9px; border: 0;
+    text-align: center; font-size: 21px; line-height: 1; color: #fff;
+    padding: 0; cursor: pointer;
   }
+  .prow2 .col {
+    width: 34px; height: 34px; flex: none; padding: 0; cursor: pointer;
+    border: 1px solid var(--rule); border-radius: 8px; background: transparent;
+  }
+  .prow2 .col::-webkit-color-swatch-wrapper { padding: 2px; }
+  .prow2 .col::-webkit-color-swatch { border: 0; border-radius: 6px; }
   .prow2 input {
     flex: 1; min-width: 0; font: inherit; font-size: 15px; color: var(--ink);
     background: transparent; border: 0; border-bottom: 1px solid var(--rule); padding: 5px 2px;
@@ -213,12 +221,6 @@
   .prow2 input:focus { outline: none; border-bottom-color: var(--accent); }
   .prow2 .kill { width: 34px; height: 34px; border-radius: 8px; border: 0; cursor: pointer;
                  background: transparent; color: var(--ink-dim); font-size: 17px; }
-  .swatches { display: grid; grid-template-columns: repeat(8, 1fr); gap: 5px; }
-  .swatches button, .emojis button { border: 0; border-radius: 7px; cursor: pointer; aspect-ratio: 1; }
-  .swatches button[aria-pressed="true"] { outline: 2px solid #fff; outline-offset: 1px; }
-  .swatches button:disabled, .emojis button:disabled { opacity: .25; cursor: default; }
-  .emojis { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; }
-  .emojis button { background: #232A2D; font-size: 20px; }
 
   @media (prefers-reduced-motion: reduce) {
     .tab, .tab.settling, #scrim { transition: none; }
@@ -275,8 +277,10 @@ const STORE = "keepingtabs.state";
 
 const EDGES = ["top", "right", "bottom", "left"];
 
-/* Distinct silhouettes at 20px, nothing newer than Unicode 9.0 so older
-   devices render animals rather than tofu. */
+/* Defaults only. Players may type any emoji they like, including ones
+   that will not render everywhere — that is their call, not ours. This
+   pool just picks sensible starting animals: distinct silhouettes at
+   20px, nothing newer than Unicode 9.0 so it renders on older devices. */
 const ANIMALS = ["\u{1F98A}","\u{1F419}","\u{1F989}","\u{1F422}","\u{1F427}","\u{1F98B}","\u{1F41D}","\u{1F40C}",
                  "\u{1F988}","\u{1F987}","\u{1F418}","\u{1F433}","\u{1F980}","\u{1F991}","\u{1F40A}","\u{1F40D}",
                  "\u{1F982}","\u{1F985}","\u{1F42A}","\u{1F98F}","\u{1F438}","\u{1F994}","\u{1F995}","\u{1F407}",
@@ -355,6 +359,8 @@ function commit() {
    Players
    ============================================================ */
 
+/* Prefers an unused animal, but duplicates are allowed if that is what
+   is left, or what someone picks on purpose. */
 function freeEmoji() {
   const used = new Set(players.map(p => p.emoji));
   const pool = ANIMALS.filter(a => !used.has(a));
@@ -839,19 +845,20 @@ document.getElementById("arrange").addEventListener("click", e => {
    Players sheet - centre, unrotated, native inputs are fine here
    ============================================================ */
 
-let editing = null;
-
 function openSheet() { sheet.classList.add("on"); scrim.classList.add("on"); paintSheet(); }
-function closeSheet() { sheet.classList.remove("on"); scrim.classList.remove("on"); editing = null; }
+function closeSheet() { sheet.classList.remove("on"); scrim.classList.remove("on"); }
 
 function paintSheet() {
   const rows = players.map(p =>
     '<div class="prow2" data-id="' + p.id + '">' +
-      '<button class="chip" data-act="edit" style="background:' + p.color + '">' + p.emoji + '</button>' +
-      '<input value="' + esc(p.name) + '" data-act="name" maxlength="24" enterkeyhint="done">' +
+      '<input class="emo" data-act="emoji" value="' + esc(p.emoji) + '" ' +
+        'style="background:' + p.color + '" aria-label="Emoji" ' +
+        'autocomplete="off" autocorrect="off" autocapitalize="off" enterkeyhint="done">' +
+      '<input class="col" data-act="color" type="color" value="' + p.color + '" aria-label="Colour">' +
+      '<input value="' + esc(p.name) + '" data-act="name" maxlength="24" ' +
+        'aria-label="Name" enterkeyhint="done">' +
       '<button class="kill" data-act="remove" aria-label="Remove">✕</button>' +
-    '</div>' +
-    (editing === p.id ? pickers(p) : "")
+    '</div>'
   ).join("");
 
   sheet.innerHTML =
@@ -864,18 +871,6 @@ function paintSheet() {
     (players.length >= MAX_PLAYERS ? '<div class="lead">Sixteen is the cap.</div>' : "");
 }
 
-function pickers(p) {
-  const usedE = new Set(players.filter(x => x.id !== p.id).map(x => x.emoji));
-  const usedC = new Set(players.filter(x => x.id !== p.id).map(x => x.color));
-  return '<div class="swatches">' +
-      COLORS.map(c => '<button data-act="color" data-v="' + c + '" style="background:' + c + '"' +
-        (usedC.has(c) ? " disabled" : "") + (p.color === c ? ' aria-pressed="true"' : "") + "></button>").join("") +
-    "</div>" +
-    '<div class="emojis">' +
-      ANIMALS.map(a => '<button data-act="emoji" data-v="' + a + '"' + (usedE.has(a) ? " disabled" : "") + ">" + a + "</button>").join("") +
-    "</div>";
-}
-
 sheet.addEventListener("click", e => {
   const b = e.target.closest("[data-act]");
   if (!b || b.tagName === "INPUT") return;
@@ -886,25 +881,53 @@ sheet.addEventListener("click", e => {
   if (act === "add")    { addPlayer(); rebuildTabs(); commit(); paintSheet(); return; }
   if (act === "done")   { closeSheet(); return; }
   if (act === "remove") { removePlayer(rowId); rebuildTabs(); commit(); paintSheet(); return; }
-  if (act === "edit")   { editing = (editing === rowId ? null : rowId); paintSheet(); return; }
-
-  if (act === "color" || act === "emoji") {
-    const p = players.find(x => x.id === editing);
-    if (!p) return;
-    if (act === "color") { p.color = b.dataset.v; p.el.style.background = p.color; }
-    else { p.emoji = b.dataset.v; p.el.querySelector(".emoji").textContent = p.emoji; }
-    commit();
-    paintSheet();
-  }
 });
 
+/* Emoji can be several code points — a ZWJ sequence, a flag — so take
+   the first grapheme rather than the first character. */
+function firstGrapheme(str) {
+  const s = String(str || "").trim();
+  if (!s) return "";
+  if (typeof Intl !== "undefined" && Intl.Segmenter) {
+    for (const g of new Intl.Segmenter(undefined, { granularity: "grapheme" }).segment(s)) {
+      return g.segment;
+    }
+  }
+  return Array.from(s)[0] || "";
+}
+
+/* No paintSheet from here: rebuilding the list would steal the caret. */
 sheet.addEventListener("input", e => {
-  const inp = e.target.closest('input[data-act="name"]');
-  if (!inp) return;
-  const p = players.find(x => x.id === inp.closest("[data-id]").dataset.id);
+  const inp = e.target.closest("input[data-act]");
+  const row = inp && inp.closest("[data-id]");
+  if (!row) return;
+  const p = players.find(x => x.id === row.dataset.id);
   if (!p) return;
-  p.name = inp.value;
-  commit();              // deliberately no paintSheet: it would steal the caret
+
+  if (inp.dataset.act === "name") {
+    p.name = inp.value;
+  } else if (inp.dataset.act === "color") {
+    p.color = inp.value;
+    p.el.style.background = p.color;
+    const emo = row.querySelector('input[data-act="emoji"]');
+    if (emo) emo.style.background = p.color;
+  } else if (inp.dataset.act === "emoji") {
+    const g = firstGrapheme(inp.value);
+    if (!g) return;                       // mid-edit; wait for a character
+    p.emoji = g;
+    p.el.querySelector(".emoji").textContent = g;
+  }
+  commit();
+});
+
+/* Normalise the emoji field on blur, not on input — rewriting value while
+   someone is typing fights the emoji keyboard. */
+sheet.addEventListener("focusout", e => {
+  const inp = e.target.closest('input[data-act="emoji"]');
+  const row = inp && inp.closest("[data-id]");
+  if (!row) return;
+  const p = players.find(x => x.id === row.dataset.id);
+  if (p && inp.value !== p.emoji) inp.value = p.emoji;
 });
 
 document.getElementById("manage").addEventListener("click", openSheet);
