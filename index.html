@@ -309,7 +309,11 @@ function tabTransform(edge, along, len, rect) {
    Layout — pack each edge, then place
    ============================================================ */
 
-function layout() {
+/* `commit` writes resolved positions back to each tab's fraction.
+   During a drag it stays false: neighbours are shoved only visually, so
+   moving away lets them spring home. Committing every frame instead
+   makes each shove the tab's new home, and it can be pushed for ever. */
+function layout(commit = false) {
   const rect = safeRect();
 
   spillOverfullEdges(rect);
@@ -365,11 +369,12 @@ function layout() {
       p._len = len;
       p._along = c - half;
       p._transform = tabTransform(edge, p._along, len, rect);
-      // A tab that got shoved KEEPS its new spot. Writing the resolved
-      // position back to `fraction` is what makes displacement real
-      // rather than cosmetic — otherwise only `_along` moves and the
-      // tab springs back to its stale fraction on the next layout.
-      p.fraction = span.length > 0 ? clamp((c - span.start) / span.length, 0, 1) : 0.5;
+      // Displacement becomes real only on drop. Until then `fraction`
+      // is left alone, so every frame re-derives the shove from the
+      // original positions rather than from the last shoved ones.
+      if (commit && span.length > 0) {
+        p.fraction = clamp((c - span.start) / span.length, 0, 1);
+      }
     });
   }
 
@@ -492,7 +497,7 @@ function setCount(n) {
       players.push(p);
     }
   }
-  layout();
+  layout(true);
   report();
 }
 
@@ -558,6 +563,11 @@ function onPointerUp(e) {
   if (drag.timer) clearTimeout(drag.timer);
   const p = drag.p;
   if (drag.active) {
+    // Commit while the tab is still pinned, so what gets recorded is
+    // exactly the arrangement on screen. Clearing `lifted` first would
+    // re-run the unpinned relaxation and could shift things at the last
+    // moment.
+    layout(true);
     p.lifted = false;
     p.el.classList.remove("lifted");
     layout();
@@ -636,9 +646,9 @@ document.getElementById("arrange").addEventListener("click", e => {
 let resizeTimer;
 window.addEventListener("resize", () => {
   clearTimeout(resizeTimer);
-  resizeTimer = setTimeout(() => { readSafeInsets(); layout(); report(); }, 80);
+  resizeTimer = setTimeout(() => { readSafeInsets(); layout(true); report(); }, 80);
 });
-window.addEventListener("orientationchange", () => setTimeout(() => { readSafeInsets(); layout(); report(); }, 250));
+window.addEventListener("orientationchange", () => setTimeout(() => { readSafeInsets(); layout(true); report(); }, 250));
 
 readSafeInsets();
 setCount(+countEl.value);
