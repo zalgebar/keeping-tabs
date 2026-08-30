@@ -13,7 +13,7 @@
      ============================================================ */
 
   :root {
-    --depth: 72px;
+    --depth: 80px;
     --ground: #14181A;
     --ink: #E8EDEA;
     --ink-dim: #8C9A94;
@@ -118,11 +118,11 @@
     /* local y=0 is the INWARD edge, y=depth is the OUTER edge.
        Padding reserves both strips so content never collides with
        the inward bar or the outer star. */
-    padding: 8px 0 18px;
+    padding: 7px 0 17px;
   }
 
-  .tab.shape-round { border-radius: 11px 11px 0 0; }
-  .tab.shape-folder { clip-path: polygon(0 100%, 13px 0, calc(100% - 13px) 0, 100% 100%); }
+  /* straight sides, rounded inward corners */
+  .tab { border-radius: 12px 12px 0 0; }
 
   .tab.lifted { cursor: grabbing; filter: brightness(1.14); box-shadow: 0 0 0 2px #fff8, 0 8px 24px #0009; z-index: 10; }
   .tab.settling { transition: transform .22s cubic-bezier(.2,.9,.3,1), box-shadow .18s ease, filter .18s ease; }
@@ -130,20 +130,20 @@
   /* line-height 1 on both rows: inherited 1.4 makes them taller than
      they look and pushes content into the bar and star strips. */
   .tab .name { display: flex; align-items: baseline; gap: 5px; max-width: 100%; padding: 0 8px; line-height: 1; }
-  .tab .emoji { font-size: 20px; line-height: 1; }
+  .tab .emoji { font-size: 22px; line-height: 1; }
   .tab .who {
-    font-size: 15px; font-weight: 600; letter-spacing: .01em;
+    font-size: 17px; font-weight: 600; letter-spacing: .01em;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
   .tab .nums { display: flex; align-items: baseline; gap: 4px; font-variant-numeric: tabular-nums; line-height: 1; }
-  .tab .rnd { font-size: 14px; opacity: .78; }
-  .tab .tot { font-size: 25px; font-weight: 700; letter-spacing: -.02em; }
+  .tab .rnd { font-size: 16px; opacity: .78; }
+  .tab .tot { font-size: 30px; font-weight: 700; letter-spacing: -.02em; }
 
   /* tier: hide pieces as length shrinks */
   .tab.t-first .who   { max-width: 8ch; }
   .tab.t-norounds .rnd { display: none; }
   .tab.t-emoji .who   { display: none; }
-  .tab.t-emoji .emoji { font-size: 20px; }
+  .tab.t-emoji .emoji { font-size: 24px; }
 
   /* markers — visual placeholders, real behaviour is M3 (#18) */
   .tab .bar {
@@ -174,13 +174,6 @@
       <strong id="countVal" style="width:2ch;text-align:right">6</strong>
     </div>
     <div class="row">
-      <label>Shape</label>
-      <div class="seg" id="shape">
-        <button data-shape="round" aria-pressed="true">Rounded</button>
-        <button data-shape="folder" aria-pressed="false">Folder</button>
-      </div>
-    </div>
-    <div class="row">
       <label>Tabs</label>
       <div class="seg" id="arrange">
         <button data-arrange="off" aria-pressed="true">Locked</button>
@@ -199,9 +192,11 @@
    Constants
    ============================================================ */
 
-const DEPTH    = 72;   // how far a tab reaches into the screen
+const DEPTH    = 80;   // how far a tab reaches in, measured from the SAFE edge
+const PAD_IN   = 7;    // clear of the inward bar
+const PAD_OUT  = 17;   // clear of the outer star
 const GAP      = 6;    // between neighbours on the same edge
-const MIN_LEN  = 56;   // floor; below this an edge is full
+const MIN_LEN  = 60;   // floor; below this an edge is full
 const MAX_LEN  = 200;
 /* Tabs deliberately do NOT fill their edge. Sized to the full span they
    leave zero slack, so a neighbour can never visibly slide out of the
@@ -234,7 +229,6 @@ const COLORS = ["#B3591F","#43489B","#1E5C46","#A02F2C","#6B4C9A","#0F6E77",
    ============================================================ */
 
 let players = [];
-let shape = "round";
 let arrangeMode = false;
 let safe = { top: 0, right: 0, bottom: 0, left: 0 };
 
@@ -296,12 +290,21 @@ function edgeCapacity(edge, rect) {
    outer edge, on all four sides. That invariant is what lets the
    last-round bar and the leader star sit on fixed local edges.
    ------------------------------------------------------------ */
-function tabTransform(edge, along, len, rect) {
+/* Total depth for an edge: DEPTH inward of the safe boundary, plus the
+   safe-area inset as bleed. Tabs anchor to the PHYSICAL screen edge so
+   they look attached rather than hovering above a letterboxed strip —
+   the background runs to the bezel while content stays inside the safe
+   area, clear of the home indicator. */
+function edgeDepth(edge) { return DEPTH + (safe[edge] || 0); }
+
+function tabTransform(edge, along, len) {
+  const W = window.innerWidth, H = window.innerHeight;
+  const D = edgeDepth(edge);
   switch (edge) {
-    case "bottom": return `translate(${along}px, ${rect.b - DEPTH}px) rotate(0deg)`;
-    case "top":    return `translate(${along + len}px, ${rect.t + DEPTH}px) rotate(180deg)`;
-    case "left":   return `translate(${rect.l + DEPTH}px, ${along}px) rotate(90deg)`;
-    case "right":  return `translate(${rect.r - DEPTH}px, ${along + len}px) rotate(-90deg)`;
+    case "bottom": return `translate(${along}px, ${H - D}px) rotate(0deg)`;
+    case "top":    return `translate(${along + len}px, ${D}px) rotate(180deg)`;
+    case "left":   return `translate(${D}px, ${along}px) rotate(90deg)`;
+    case "right":  return `translate(${W - D}px, ${along + len}px) rotate(-90deg)`;
   }
 }
 
@@ -368,7 +371,7 @@ function layout(commit = false) {
       const c = clamp(centres[i], lo, hi);
       p._len = len;
       p._along = c - half;
-      p._transform = tabTransform(edge, p._along, len, rect);
+      p._transform = tabTransform(edge, p._along, len);
       // Displacement becomes real only on drop. Until then `fraction`
       // is left alone, so every frame re-derives the shove from the
       // original positions rather than from the last shoved ones.
@@ -407,9 +410,9 @@ const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
 /* Thresholds scale with the type, which grew along with DEPTH. */
 function tierFor(len) {
-  if (len >= 140) return "";              // emoji + full name / round + total
-  if (len >= 100) return "t-first";       // emoji + first name / round + total
-  if (len >= 72)  return "t-first t-norounds";
+  if (len >= 150) return "";              // emoji + full name / round + total
+  if (len >= 108) return "t-first";       // emoji + first name / round + total
+  if (len >= 76)  return "t-first t-norounds";
   return "t-emoji t-norounds";            // emoji / total
 }
 
@@ -421,7 +424,10 @@ function render(rect) {
 
   for (const p of players) {
     const el = p.el;
+    const bleed = safe[p.edge] || 0;
     el.style.width = p._len + "px";
+    el.style.height = (DEPTH + bleed) + "px";
+    el.style.paddingBottom = (PAD_OUT + bleed) + "px";
     el.style.transform = p._transform;
     // Transform is only allowed to animate when a tab stays on the same
     // edge. CSS interpolates the whole matrix, so transitioning across a
@@ -429,7 +435,7 @@ function render(rect) {
     // angles — visible on first paint, on spill, and on rotate. Sliding
     // along one edge is the only case where easing actually helps.
     const sameEdge = p._renderedEdge === p.edge;
-    el.className = `tab shape-${shape} ${tierFor(p._len)}` +
+    el.className = `tab ${tierFor(p._len)}` +
                    (p.lifted ? " lifted" : (sameEdge ? " settling" : "")) +
                    (p.total === best ? " leading" : "") +
                    (p.round === hot  ? " won-round" : "");
@@ -625,13 +631,6 @@ const countVal = document.getElementById("countVal");
 countEl.addEventListener("input", () => {
   countVal.textContent = countEl.value;
   setCount(+countEl.value);
-});
-
-document.getElementById("shape").addEventListener("click", e => {
-  const b = e.target.closest("button"); if (!b) return;
-  shape = b.dataset.shape;
-  [...e.currentTarget.children].forEach(c => c.setAttribute("aria-pressed", String(c === b)));
-  layout();
 });
 
 document.getElementById("arrange").addEventListener("click", e => {
