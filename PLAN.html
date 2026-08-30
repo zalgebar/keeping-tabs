@@ -1,0 +1,1149 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Keeping Tabs — Product Plan</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Mono:wght@400;500;600&family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,600;1,7..72,400&display=swap">
+
+<style>
+  :root {
+    /* light — score pad on a felt table */
+    --ground:      #ECEFE8;
+    --surface:     #F9FAF6;
+    --surface-2:   #E3E8DD;
+    --ink:         #141A16;
+    --ink-muted:   #58635A;
+    --ink-faint:   #808C82;
+    --rule:        #D1D8CA;
+    --rule-soft:   #DEE3D8;
+    --felt:        #1E5C46;
+    --felt-soft:   #DCE8E1;
+    --now:         #B3591F;
+    --now-soft:    #F3E2D4;
+    --next:        #43489B;
+    --next-soft:   #DFE1F2;
+    --flag:        #A02F2C;
+    --flag-soft:   #F2DEDC;
+
+    --step--1: 0.8125rem;
+    --step-0:  1.0625rem;
+    --step-1:  1.25rem;
+    --step-2:  1.5rem;
+    --step-3:  2rem;
+    --step-4:  2.75rem;
+
+    --measure: 68ch;
+    --gutter: 3.25rem;
+
+    --sans: "Bricolage Grotesque", "Helvetica Neue", Arial, sans-serif;
+    --serif: "Literata", Georgia, "Times New Roman", serif;
+    --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground:    #12160F;
+      --surface:   #1A1F1B;
+      --surface-2: #232A24;
+      --ink:       #E9EEE7;
+      --ink-muted: #96A198;
+      --ink-faint: #74806F;
+      --rule:      #2E362F;
+      --rule-soft: #252C26;
+      --felt:      #63C39B;
+      --felt-soft: #1B3129;
+      --now:       #E28C55;
+      --now-soft:  #35251A;
+      --next:      #9095E4;
+      --next-soft: #23253F;
+      --flag:      #E4807B;
+      --flag-soft: #38211F;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --ground:    #12160F;
+    --surface:   #1A1F1B;
+    --surface-2: #232A24;
+    --ink:       #E9EEE7;
+    --ink-muted: #96A198;
+    --ink-faint: #74806F;
+    --rule:      #2E362F;
+    --rule-soft: #252C26;
+    --felt:      #63C39B;
+    --felt-soft: #1B3129;
+    --now:       #E28C55;
+    --now-soft:  #35251A;
+    --next:      #9095E4;
+    --next-soft: #23253F;
+    --flag:      #E4807B;
+    --flag-soft: #38211F;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--serif);
+    font-size: var(--step-0);
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+    margin: 0;
+    padding: 0;
+  }
+
+  .page {
+    max-width: calc(var(--measure) + var(--gutter) + 4rem);
+    margin: 0 auto;
+    padding: 3.5rem 1.5rem 6rem;
+    display: flex;
+    flex-direction: column;
+    gap: 3.5rem;
+  }
+
+  @media (min-width: 60rem) {
+    .page { padding-left: calc(1.5rem + var(--gutter)); }
+  }
+
+  /* ---------- masthead ---------- */
+
+  .masthead { display: flex; flex-direction: column; gap: 1.1rem; }
+
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: var(--step--1);
+    font-weight: 500;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+    color: var(--felt);
+    margin: 0;
+  }
+
+  h1 {
+    font-family: var(--sans);
+    font-weight: 700;
+    font-size: var(--step-4);
+    line-height: 1.02;
+    letter-spacing: -0.035em;
+    text-wrap: balance;
+    margin: 0;
+  }
+
+  .deck {
+    font-size: var(--step-1);
+    line-height: 1.5;
+    color: var(--ink-muted);
+    max-width: 60ch;
+    margin: 0;
+  }
+
+  .meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    align-items: center;
+    font-family: var(--mono);
+    font-size: var(--step--1);
+    padding-top: 0.5rem;
+    border-top: 1px solid var(--rule);
+  }
+
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.2rem 0.6rem;
+    border-radius: 3px;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+  }
+  .chip.now  { background: var(--now-soft);  color: var(--now); }
+  .chip.next { background: var(--next-soft); color: var(--next); }
+  .chip.plain { color: var(--ink-faint); }
+
+  /* ---------- contents ---------- */
+
+  .contents {
+    background: var(--surface);
+    border: 1px solid var(--rule-soft);
+    border-radius: 4px;
+    padding: 1.25rem 1.4rem;
+  }
+  .contents h2 {
+    font-family: var(--mono);
+    font-size: var(--step--1);
+    font-weight: 600;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin: 0 0 0.85rem;
+  }
+  .contents ol {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+    gap: 0.3rem 1.5rem;
+    counter-reset: toc;
+  }
+  .contents li { counter-increment: toc; }
+  .contents a {
+    font-family: var(--sans);
+    font-size: 0.95rem;
+    color: var(--ink);
+    text-decoration: none;
+    display: flex;
+    gap: 0.6rem;
+    padding: 0.15rem 0;
+  }
+  .contents a::before {
+    content: counter(toc, decimal-leading-zero);
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    color: var(--ink-faint);
+    padding-top: 0.18em;
+  }
+  .contents a:hover { color: var(--felt); }
+
+  /* ---------- sections ---------- */
+
+  section { position: relative; display: flex; flex-direction: column; gap: 1.1rem; }
+
+  section > h2 {
+    font-family: var(--sans);
+    font-weight: 700;
+    font-size: var(--step-3);
+    line-height: 1.12;
+    letter-spacing: -0.025em;
+    text-wrap: balance;
+    margin: 0;
+    padding-top: 1.5rem;
+    border-top: 2px solid var(--ink);
+  }
+
+  /* the edge-tab motif: a small tab protruding into the left gutter,
+     echoing the product's own mechanic */
+  .tab {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    color: var(--surface);
+    background: var(--felt);
+    padding: 0.2rem 0.5rem;
+    border-radius: 3px;
+    align-self: flex-start;
+    margin-bottom: -0.4rem;
+  }
+  .tab.now  { background: var(--now); }
+  .tab.next { background: var(--next); }
+
+  @media (min-width: 60rem) {
+    .tab {
+      position: absolute;
+      left: calc(-1 * var(--gutter));
+      top: 1.9rem;
+      margin: 0;
+      border-radius: 3px 0 0 3px;
+      writing-mode: vertical-rl;
+      transform: rotate(180deg);
+      padding: 0.5rem 0.2rem;
+    }
+  }
+
+  h3 {
+    font-family: var(--sans);
+    font-weight: 700;
+    font-size: var(--step-1);
+    letter-spacing: -0.015em;
+    margin: 0.9rem 0 -0.4rem;
+  }
+
+  h4 {
+    font-family: var(--mono);
+    font-size: var(--step--1);
+    font-weight: 600;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+    margin: 0.6rem 0 -0.5rem;
+  }
+
+  p { margin: 0; max-width: var(--measure); }
+
+  a { color: var(--felt); }
+
+  ul, ol.body-list {
+    margin: 0;
+    padding-left: 1.15rem;
+    max-width: var(--measure);
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+  }
+  li { padding-left: 0.2rem; }
+  li::marker { color: var(--ink-faint); }
+
+  strong { font-weight: 600; }
+  em { font-style: italic; }
+
+  code {
+    font-family: var(--mono);
+    font-size: 0.88em;
+    background: var(--surface-2);
+    padding: 0.1em 0.35em;
+    border-radius: 3px;
+  }
+
+  pre {
+    font-family: var(--mono);
+    font-size: 0.8rem;
+    line-height: 1.6;
+    background: var(--surface);
+    border: 1px solid var(--rule-soft);
+    border-left: 3px solid var(--felt);
+    border-radius: 3px;
+    padding: 1rem 1.1rem;
+    margin: 0;
+    overflow-x: auto;
+  }
+  pre code { background: none; padding: 0; font-size: inherit; }
+
+  /* ---------- tables ---------- */
+
+  .table-wrap { overflow-x: auto; }
+
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    min-width: 30rem;
+    font-family: var(--sans);
+    font-size: 0.94rem;
+  }
+  th, td {
+    text-align: left;
+    padding: 0.55rem 0.9rem 0.55rem 0;
+    border-bottom: 1px solid var(--rule-soft);
+    vertical-align: top;
+  }
+  th {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    border-bottom: 1px solid var(--rule);
+    white-space: nowrap;
+  }
+  td.num, th.num { font-family: var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+  /* ---------- callouts ---------- */
+
+  .note {
+    background: var(--surface);
+    border: 1px solid var(--rule-soft);
+    border-left: 3px solid var(--felt);
+    border-radius: 3px;
+    padding: 0.9rem 1.1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    max-width: var(--measure);
+  }
+  .note.risk { border-left-color: var(--flag); background: var(--flag-soft); }
+  .note .label {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--felt);
+  }
+  .note.risk .label { color: var(--flag); }
+  .note p { font-size: 0.97rem; }
+
+  /* ---------- scope cards ---------- */
+
+  .scope {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+    gap: 1rem;
+  }
+  .scope-card {
+    background: var(--surface);
+    border: 1px solid var(--rule-soft);
+    border-radius: 4px;
+    padding: 1rem 1.1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+  }
+  .scope-card h4 { margin: 0; color: var(--ink); }
+  .scope-card ul { padding-left: 1rem; gap: 0.3rem; font-size: 0.95rem; }
+
+  /* ---------- milestones ---------- */
+
+  .milestones { display: flex; flex-direction: column; gap: 0; max-width: var(--measure); }
+  .ms {
+    display: grid;
+    grid-template-columns: 3.5rem 1fr;
+    gap: 0 1rem;
+    padding: 0.85rem 0;
+    border-bottom: 1px solid var(--rule-soft);
+  }
+  .ms:first-child { border-top: 1px solid var(--rule); }
+  .ms-id {
+    font-family: var(--mono);
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--now);
+    padding-top: 0.25em;
+  }
+  .ms.b .ms-id { color: var(--next); }
+  .ms-body { display: flex; flex-direction: column; gap: 0.2rem; }
+  .ms-title { font-family: var(--sans); font-weight: 700; font-size: 1rem; }
+  .ms-desc { font-size: 0.95rem; color: var(--ink-muted); line-height: 1.5; }
+
+  /* ---------- diagram ---------- */
+
+  figure { margin: 0; display: flex; flex-direction: column; gap: 0.6rem; }
+  figure svg { width: 100%; height: auto; display: block; }
+  .fig-frame {
+    background: var(--surface);
+    border: 1px solid var(--rule-soft);
+    border-radius: 4px;
+    padding: 1.25rem;
+  }
+  figcaption {
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    line-height: 1.5;
+    color: var(--ink-faint);
+    max-width: var(--measure);
+  }
+
+  /* ---------- decisions ---------- */
+
+  .decisions { display: flex; flex-direction: column; gap: 0; max-width: var(--measure); }
+  .dec {
+    display: grid;
+    grid-template-columns: minmax(8rem, 12rem) 1fr;
+    gap: 0.15rem 1.25rem;
+    padding: 0.75rem 0;
+    border-bottom: 1px solid var(--rule-soft);
+  }
+  .dec:first-child { border-top: 1px solid var(--rule); }
+  .dec dt {
+    font-family: var(--mono);
+    font-size: 0.78rem;
+    font-weight: 500;
+    color: var(--ink-muted);
+    padding-top: 0.3em;
+  }
+  .dec dd { margin: 0; font-size: 0.97rem; }
+
+  @media (max-width: 34rem) {
+    .dec { grid-template-columns: 1fr; }
+    .dec dt { padding-top: 0; }
+  }
+
+  a:focus-visible, .contents a:focus-visible {
+    outline: 2px solid var(--felt);
+    outline-offset: 3px;
+    border-radius: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; transition: none !important; }
+  }
+</style>
+</head>
+<body>
+
+<div class="page">
+
+  <header class="masthead">
+    <p class="eyebrow">Product plan</p>
+    <h1>Keeping Tabs</h1>
+    <p class="deck">A board game scorekeeper for the device in the middle of the table. Every player gets a tab on the screen's edge, dragged to sit closest to where they're actually sitting — and rotated so their score reads right-side up from their chair.</p>
+    <div class="meta">
+      <span class="chip now">v1.0 · Local</span>
+      <span class="chip next">v1.1 · Sync</span>
+      <span class="chip plain">29 Aug 2026</span>
+      <span class="chip plain">Static · GitHub Pages</span>
+    </div>
+  </header>
+
+  <nav class="contents">
+    <h2>Contents</h2>
+    <ol>
+      <li><a href="#concept">The concept</a></li>
+      <li><a href="#decided">Decisions already made</a></li>
+      <li><a href="#mechanic">The edge-tab mechanic</a></li>
+      <li><a href="#scoring">The scoring model</a></li>
+      <li><a href="#v10">v1.0 — Local scope</a></li>
+      <li><a href="#v11">v1.1 — The sync layer</a></li>
+      <li><a href="#data">Data model</a></li>
+      <li><a href="#tech">Technical shape</a></li>
+      <li><a href="#risks">Risks &amp; sharp edges</a></li>
+      <li><a href="#build">Build order</a></li>
+      <li><a href="#open">Still open</a></li>
+    </ol>
+  </nav>
+
+  <section id="concept">
+    <span class="tab">Concept</span>
+    <h2>The concept</h2>
+    <p>Score pads work because they sit flat on the table and everyone can see them. Phone scorekeeping apps break that — one person holds the device, everyone else asks "wait, what am I on?"</p>
+    <p>Keeping Tabs puts the device flat in the middle of the table and treats the screen edge as the table edge. Each player gets a tab protruding from the perimeter. You drag your tab to the edge nearest where you're sitting, and it stays there for the whole game. Because the tab's text is rotated to face outward, everyone reads their own score upright without leaning across.</p>
+    <p>The gimmick is the product. Everything else in this plan is in service of making the tabs feel good.</p>
+    <div class="note">
+      <span class="label">Design principle</span>
+      <p>If a feature makes the tabs harder to read from across the table, it loses. The center of the screen is for game state; the edges belong to players.</p>
+    </div>
+
+    <h3>Voice</h3>
+    <p>Warm and plain-spoken, with jokes used sparingly and only where they're earned. The winner of a game is crowned <strong>Edge Lord</strong> — a title, awarded once, at the moment everyone is already looking at the screen. It is not the app's word for "player": <em>Add player</em> is clearer than <em>Add edge lord</em>, and a joke repeated on every button stops being one by the second game.</p>
+    <p><strong>Only first place gets a title.</strong> Last place gets nothing — no booby prize, no wooden spoon. A shared screen in the middle of a table is the wrong place to point at whoever already had the worst night, and a scorekeeper that mocks people is one they stop reaching for.</p>
+    <p><strong>Edge Lord appears in exactly one place in the app: the end-of-game screen.</strong> Not as a placeholder, not as an input hint, not as a default roster name, not sprinkled through empty states. Confining it to a single moment is what keeps it funny, and it leaves every field and label in the rest of the app plainly worded for someone meeting it for the first time.</p>
+
+    <div class="note">
+      <span class="label">Rule</span>
+      <p>The joke is never load-bearing. Every screen has to make complete sense to someone who doesn't get the reference — a grandparent at the table, a first-time player, a screen reader. "Edge Lord" rides <em>alongside</em> a plain statement of who won, never instead of it: the result reads <strong>Ann wins</strong> in large type, with the title as a small badge beneath.</p>
+    </div>
+  </section>
+
+  <section id="decided">
+    <span class="tab">Decided</span>
+    <h2>Decisions already made</h2>
+    <dl class="decisions">
+      <div class="dec">
+        <dt>Player ceiling</dt>
+        <dd>Up to <strong>16</strong>. Every tab still shows a name and both numbers at the cap; the ladder handles clustering. Crowded is acceptable — everyone plays.</dd>
+      </div>
+      <div class="dec">
+        <dt>Session model</dt>
+        <dd>One live game at a time, plus a rolling buffer of the <strong>last three finished games</strong> kept locally in v1.0. v1.1 syncs that buffer to a new device. Importing arbitrary historical sessions is deferred past v1.1.</dd>
+      </div>
+      <div class="dec">
+        <dt>Player groups</dt>
+        <dd>Yes — saved rosters, kept simple. Must be transferable between devices without a file round-trip.</dd>
+      </div>
+      <div class="dec">
+        <dt>Visual direction</dt>
+        <dd>Colorful. Player color is never the <em>only</em> identifier — an animal emoji rides alongside it on every tab.</dd>
+      </div>
+      <div class="dec">
+        <dt>Titles</dt>
+        <dd>Winner only. <strong>Edge Lord</strong> on the end-of-game screen, and nothing for last place.</dd>
+      </div>
+      <div class="dec">
+        <dt>Player identity</dt>
+        <dd>Name, color, and a random <strong>animal emoji</strong> assigned on creation and changeable any time. Replaces initials as the compact identifier.</dd>
+      </div>
+      <div class="dec">
+        <dt>Name</dt>
+        <dd><strong>Keeping Tabs</strong> — the idiom already means tracking how everyone's doing, and the interface is literally made of tabs.</dd>
+      </div>
+      <div class="dec">
+        <dt>Hosting</dt>
+        <dd>GitHub Pages. Static files only, no build step, no server.</dd>
+      </div>
+      <div class="dec">
+        <dt>Sync strategy</dt>
+        <dd>Nostr-backed, invisible to the user, deferred to v1.1. Local storage stays the source of truth in both versions.</dd>
+      </div>
+    </dl>
+  </section>
+
+  <section id="mechanic">
+    <span class="tab">Mechanic</span>
+    <h2>The edge-tab mechanic</h2>
+
+    <figure>
+      <div class="fig-frame">
+        <svg viewBox="0 0 480 360" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Diagram of a screen. Four player tabs sit flush against the four screen edges and protrude inward. Each tab carries two rows across its depth — an animal emoji with the player's name, then the round score and total — all rotated to face the player sitting on that side. Ann's tab at the bottom carries both markers at once: a star on its outer strip showing she leads on total, and a bright bar along its inward edge showing she won the last round. A dashed rectangle in the middle marks the remaining center area for game state.">
+          <defs>
+            <!-- leader mark: inline SVG, not an emoji -->
+            <polygon id="kt-star"
+                     points="0,-5.5 1.35,-1.86 5.23,-1.7 2.19,0.71 3.23,4.45 0,2.3 -3.23,4.45 -2.19,0.71 -5.23,-1.7 -1.35,-1.86"/>
+          </defs>
+
+          <!-- the screen is the whole canvas -->
+          <rect x="10" y="10" width="460" height="340" rx="16"
+                style="fill: var(--surface-2); stroke: var(--rule);" stroke-width="1.5"/>
+
+          <!-- center safe area -->
+          <rect x="70" y="70" width="340" height="220" rx="6"
+                style="fill: none; stroke: var(--ink-faint);"
+                stroke-width="1" stroke-dasharray="4 4" opacity="0.55"/>
+          <text x="240" y="172" text-anchor="middle" font-size="10" letter-spacing="1.5"
+                style="font-family: var(--mono); fill: var(--ink-faint);">ROUND 3</text>
+          <text x="240" y="196" text-anchor="middle" font-size="14" font-weight="700"
+                style="font-family: var(--sans); fill: var(--ink-muted);">End round</text>
+
+          <!-- bottom edge · 0° · in the lead AND won last round -->
+          <path d="M175,350 L175,309 Q175,300 184,300 L296,300 Q305,300 305,309 L305,350 Z"
+                style="fill: #B3591F;"/>
+          <!-- won last round: bright bar on the INWARD edge -->
+          <path d="M186,302.5 L294,302.5" stroke-width="3" stroke-linecap="round"
+                style="stroke: #FFD98A;"/>
+          <g style="font-family: var(--mono); fill: #FFFFFF;">
+            <text x="240" y="318" text-anchor="middle">
+              <tspan font-size="14">🦊</tspan><tspan font-size="12" font-weight="600"> Ann</tspan>
+            </text>
+            <text x="240" y="334" text-anchor="middle">
+              <tspan font-size="10" opacity="0.8">7 · </tspan><tspan font-size="15" font-weight="700">51</tspan>
+            </text>
+            <!-- in the lead: star on the OUTER strip -->
+            <use href="#kt-star" transform="translate(240 342)" opacity="0.95"/>
+          </g>
+
+          <!-- top edge · 180° -->
+          <path d="M120,10 L120,51 Q120,60 129,60 L241,60 Q250,60 250,51 L250,10 Z"
+                style="fill: #43489B;"/>
+          <g transform="rotate(180 185 35)" style="font-family: var(--mono); fill: #FFFFFF;">
+            <text x="185" y="27" text-anchor="middle">
+              <tspan font-size="14">🐙</tspan><tspan font-size="12" font-weight="600"> Rai</tspan>
+            </text>
+            <text x="185" y="43" text-anchor="middle">
+              <tspan font-size="10" opacity="0.8">3 · </tspan><tspan font-size="15" font-weight="700">37</tspan>
+            </text>
+          </g>
+
+          <!-- left edge · 90° -->
+          <path d="M10,130 L51,130 Q60,130 60,139 L60,251 Q60,260 51,260 L10,260 Z"
+                style="fill: #1E5C46;"/>
+          <g transform="rotate(90 35 195)" style="font-family: var(--mono); fill: #FFFFFF;">
+            <text x="35" y="187" text-anchor="middle">
+              <tspan font-size="14">🦉</tspan><tspan font-size="12" font-weight="600"> Bo</tspan>
+            </text>
+            <text x="35" y="203" text-anchor="middle">
+              <tspan font-size="10" opacity="0.8">5 · </tspan><tspan font-size="15" font-weight="700">42</tspan>
+            </text>
+          </g>
+
+          <!-- right edge · −90° -->
+          <path d="M470,150 L429,150 Q420,150 420,159 L420,271 Q420,280 429,280 L470,280 Z"
+                style="fill: #A02F2C;"/>
+          <g transform="rotate(-90 445 215)" style="font-family: var(--mono); fill: #FFFFFF;">
+            <text x="445" y="207" text-anchor="middle">
+              <tspan font-size="14">🐢</tspan><tspan font-size="12" font-weight="600"> Kit</tspan>
+            </text>
+            <text x="445" y="223" text-anchor="middle">
+              <tspan font-size="10" opacity="0.8">2 · </tspan><tspan font-size="15" font-weight="700">29</tspan>
+            </text>
+          </g>
+        </svg>
+      </div>
+      <figcaption>Tabs are anchored flush to the screen edge and protrude inward, rounded only on the inward face. Each carries two rows across its depth — emoji and name, then round and total — with rotation derived from the edge so everything faces the player on that side. Ann holds both markers: the star on the outer strip means she leads on total, the lit inward edge means she won the last round. Opposite edges of the same tab, so they never compete. The dashed rectangle is what's left for game state.</figcaption>
+    </figure>
+
+    <h3>Tabs live inside the screen</h3>
+    <p>The screen <em>is</em> the whole canvas — there is no space outside it for a tab to stick into. So every tab is anchored flush against its edge and protrudes <strong>inward</strong>, rounded only on the inward-facing side, like a bookmark hanging into the page.</p>
+    <p>Each tab is a <strong>length × depth</strong> box: length runs <em>along</em> its edge, depth reaches <em>into</em> the screen. Depth is a constant — start at 56px — and length is what varies as edges get crowded.</p>
+    <p>This makes the implementation unusually clean. Author one tab component as a <code>length × depth</code> box with upright text, then place it with a single <code>translate(…) rotate(…)</code>. The four edge transforms are constants derived once. No per-edge markup, no swapping width and height for the vertical edges, and one rotation value that serves both the box and its text.</p>
+
+    <h4>The center is what's left over</h4>
+    <p>Tabs eat real estate, so the center isn't the viewport — it's the viewport inset by the tab depth on each edge that currently holds tabs. Game state lays out inside that computed rect and reflows when a tab moves to a different edge. On a 390 × 844 phone with all four edges occupied, that leaves 278 × 732 for the round counter and End Round, which is more than enough.</p>
+
+    <h4>Corners are reserved</h4>
+    <p>Two tabs on adjoining edges would collide in the corner square, so each edge's usable span excludes one tab-depth at both ends. Nothing is ever placed in a corner, and the four corners stay visually quiet — which is also where a settings affordance can live without competing with anyone's score.</p>
+
+    <h4>What's inside a tab</h4>
+    <p>Two rows stacked across the tab's <em>depth</em>: emoji and name on the first, the numbers on the second. Depth is a fixed 56px and otherwise underused, so the emoji costs no length — and the round and total sit on their own row, unaffected by how far the name has had to shrink. All the length pressure falls on the name, which is the part that can afford it.</p>
+
+    <h3>Position is stored as edge + fraction</h3>
+    <p>Not <code>x/y</code>, and not a single scalar walking clockwise around the perimeter. Both of those reshuffle players when the device rotates or resizes. <code>{ edge: "right", fraction: 0.35 }</code> survives any viewport change — the person on your right stays on the right.</p>
+
+    <h3>Rotation table</h3>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Edge</th><th class="num">CSS rotation</th><th>Reasoning</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Bottom</td><td class="num">0°</td><td>Player faces the screen normally</td></tr>
+          <tr><td>Left</td><td class="num">90°</td><td>Their "up" points toward +x</td></tr>
+          <tr><td>Top</td><td class="num">180°</td><td>Reading from the far side</td></tr>
+          <tr><td>Right</td><td class="num">−90°</td><td>Their "up" points toward −x</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Player identity</h3>
+    <p>Every player carries three identifiers: a <strong>name</strong>, a <strong>color</strong>, and an <strong>animal emoji</strong> assigned at random on creation. Emoji are drawn without replacement so no two players in a game share one, and the emoji shows on the tab at <em>every</em> size — never introduced only once things get tight, which would force people to learn a new identifier at the worst possible moment.</p>
+    <p>Random assignment is a starting point, not a verdict. Tapping the emoji in a player's panel opens the pool to pick a different one, and saved rosters remember the choice.</p>
+    <p>Animals rather than people: no skin-tone modifiers to handle, no gendered defaults, and the silhouettes are more distinct. This is also what retires initials — with 16 players, colliding initials are near-certain (two Sams both read as "S"), while a fox and a whale never collide at any size.</p>
+
+    <h4>The pool</h4>
+    <p>Hand-curated, not the whole Unicode animal block. Two filters: <strong>distinct silhouettes</strong> at 20px — 🐶🐕🦮🐩 are one shape rather than four, and 🐻🐨🐼 are three brown circles — and <strong>universal support</strong>, nothing newer than Unicode 9.0, so an older tablet at game night renders animals instead of tofu boxes. Around 48 entries, comfortably more than the 16-player cap.</p>
+    <p>Emoji ignore CSS <code>color</code> and render in their own palette, so they need a light disc behind them on the tab; a dark animal on a dark player color would otherwise disappear.</p>
+
+    <h3>How many fit</h3>
+    <p>Measured on a 390 × 844 phone in standalone mode, with safe-area insets applied and corners reserved: the short edges have 278px of usable span each, the long edges 639px. The long edges carry roughly 2.3× what the short ones do, so auto-arrange allocates players <strong>proportionally to span</strong> rather than round-robin.</p>
+    <p>Tabs on the same edge push each other rather than overlap — a one-dimensional relaxation pass, clamped inside the reserved corners. As length per tab shrinks, content drops in this order:</p>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th class="num">Tab length</th><th>Shows</th><th>Reached at</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="num">≥ 120px</td><td>Emoji · full name / round · total</td><td>Up to 14 players</td></tr>
+          <tr><td class="num">88–120px</td><td>Emoji · first name / round · total</td><td>15–16 players</td></tr>
+          <tr><td class="num">64–88px</td><td>Emoji · first name / total</td><td>Clustering only</td></tr>
+          <tr><td class="num">&lt; 64px</td><td>Emoji / total</td><td>Clustering only</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>At the 16-player cap every tab still shows a name and both numbers. The bottom two tiers are only reachable by dragging players onto the same edge — they exist so clustering degrades gracefully, not because a full game needs them. The floor is 48px; below that an edge is full and new tabs spill to the next-emptiest one.</p>
+    <div class="note">
+      <span class="label">Why 16 and not more</span>
+      <p>Geometry allows about 34 tabs before hitting the floor. The cap is far below that because pixels stop being the constraint first: past roughly 14 people, most of the table physically can't reach the device, and the app quietly becomes one person operating it for everyone — the exact thing it exists to fix.</p>
+    </div>
+
+    <h3>Drag versus tap</h3>
+    <p>These must never be confused mid-game — an accidental reposition while someone is trying to score is the worst failure mode in the app. Two independent safeguards:</p>
+    <ul>
+      <li><strong>Press-and-hold</strong> for 350ms to lift a tab, with a visible pick-up state. A tap under that threshold always means "open my panel".</li>
+      <li><strong>Arrange mode</strong> — an explicit toggle in the center that locks or unlocks all tabs. Locked is the default once a game starts.</li>
+    </ul>
+    <p>While dragging, the pointer is projected onto the nearest of the four edges: compute the perpendicular distance to each, pick the minimum, then clamp the position along that edge to a fraction.</p>
+
+    <h3>Auto-arrange</h3>
+    <p>On setup, entering <em>N</em> players distributes them evenly around the perimeter. Dragging to match the real table is then an adjustment, not a chore. This is the ten-second onboarding.</p>
+  </section>
+
+  <section id="scoring">
+    <span class="tab">Scoring</span>
+    <h2>The scoring model</h2>
+
+    <h3>Two display modes</h3>
+    <ul>
+      <li><strong>Total only</strong> — one big number per tab.</li>
+      <li><strong>Round and total</strong> — the round score small and secondary, the total large. This is the two-number tab.</li>
+    </ul>
+
+    <h3>Rounds are universal; categories are not</h3>
+    <p>These are separate features and should not be built together. Round-plus-total works for every game and is cheap: <strong>End Round</strong> commits each player's round score into their total, archives the round, resets round scores to zero, and increments the counter. A round-by-round grid view falls out of this for free.</p>
+    <p>Named score categories — Wingspan's five columns, Scythe's coins — need per-game templates and a game definition format. That is a materially bigger feature with a much narrower payoff. It is <strong>deferred</strong>, and when it comes it should arrive as a general "custom fields" layer rather than a library of hand-written game definitions.</p>
+
+    <h3>Two markers, matched to signal strength</h3>
+    <p>A tab carries two pieces of state beyond the numbers: <strong>who's winning overall</strong> and <strong>who took the last round</strong>. They get different marks, and which mark goes where is decided by how loudly each one reads.</p>
+    <p>A <strong>star</strong> is the more visible mark and the more commonly understood one — nobody needs it explained. So it carries the more important signal: the lead. A <strong>bar</strong> is quieter and less immediately legible, but still informative once seen, which makes it right for the secondary signal. Strongest mark to the most-asked question.</p>
+    <p>They also sit on opposite edges of the tab, so one player can hold both at once without the two ever competing.</p>
+
+    <h4>Star · in the lead</h4>
+    <p>On the <strong>outer strip</strong>, the sliver flush against the screen edge that holds nothing else. "Who's winning?" is the question a table asks constantly, and the round history grid answers it badly — scanning sixteen totals at four different rotations is precisely the work this app exists to remove.</p>
+    <ul>
+      <li>Respects lowest-wins, so a golf game stars the lowest total.</li>
+      <li>Ties star every tied player.</li>
+      <li>Suppressed while all totals are equal, which covers the opening round before anyone has scored.</li>
+      <li>Derived from current totals — nothing stored, undo free.</li>
+      <li>Accessible name appends "in the lead".</li>
+      <li>No need to clear at End Game: the leader <em>is</em> the winner, so the star and the Edge Lord announcement agree by construction.</li>
+    </ul>
+
+    <h4>Bar · won the last round</h4>
+    <p>A bright rule along the tab's <strong>inward edge</strong>, the side facing the centre of the screen. The tab reads as lit rather than badged. It answers "who's hot right now", which a running total is specifically bad at showing, and it animates in at End Round — already the moment everyone is looking up.</p>
+    <ul>
+      <li>Respects lowest-wins, so a golf round lights the lowest scorer.</li>
+      <li>Ties light every tied tab.</li>
+      <li><strong>Suppressed when every round score is identical</strong> — lighting all sixteen tabs tells nobody anything.</li>
+      <li>Clears at End Game, so nothing distracts from the result.</li>
+      <li>Derived from the last entry in <code>rounds</code> — nothing stored, undo free.</li>
+      <li>Accessible name appends "won last round".</li>
+    </ul>
+    <p>Neither costs any tab length, so both survive every compaction tier right down to emoji-plus-total.</p>
+
+    <h4>Why the star is inline SVG</h4>
+    <p>Not a letter, and not the ⭐ emoji:</p>
+    <ul>
+      <li>The tab already carries an animal emoji as the player's identity. A second emoji beside it competes, and the eye can't separate <em>who you are</em> from <em>how you're doing</em>. An SVG mark reads as interface rather than identity.</li>
+      <li>SVG takes <code>currentColor</code>, so it can be tuned for contrast against any player color. Emoji paint in their own palette and would need the same light-disc workaround the animals require.</li>
+      <li>Identical on every platform, with no Unicode version floor to respect.</li>
+    </ul>
+    <p>Star rather than laurel: a laurel wreath at 14px collapses into a ring of squiggles, while a star holds its silhouette at any size — which is why star shapes became the standard for ratings in the first place.</p>
+    <p>Worth watching in M3: a visible leader can encourage pile-on in games where that matters. If play testing says it makes games worse, it becomes a preference — but not before, and not by default.</p>
+
+    <h3>The detail panel is the tab, grown</h3>
+    <p>Because tabs already protrude inward, the panel doesn't need to be a separate surface sliding over the top. Tapping a tab <em>grows it further inward</em> — same anchor, same edge, same rotation, just more depth. One continuous animation from a 56px tab to a panel deep enough to hold controls, and closing it retracts back to a tab.</p>
+    <p>That keeps the person entering their score at their own side of the table, never reaching across or reading upside down, and it means there is no moment where the player loses track of which surface is theirs. The expanded tab holds:</p>
+    <ul>
+      <li>A large adjustment pad — ±1, ±5, ±10, and a custom entry</li>
+      <li>That player's running history of deltas for the current game</li>
+      <li>Per-player undo</li>
+      <li>Rename and recolor</li>
+    </ul>
+
+    <h3>Non-negotiables</h3>
+    <ul>
+      <li><strong>Global undo.</strong> Every score change is an event on a stack. Undo pops it. This gets used constantly.</li>
+      <li><strong>Lowest wins toggle.</strong> One boolean. Without it the app is useless for golf, Hearts, and Barbu.</li>
+      <li><strong>Autosave on every mutation.</strong> Someone will close the tab mid-game.</li>
+      <li><strong>Negative scores.</strong> Plenty of games go below zero.</li>
+    </ul>
+
+    <h3>End of game</h3>
+    <p><strong>End Game</strong> freezes scoring and shows the final standings in the center, oriented for whoever tapped it. First place is announced plainly — <strong>Ann wins</strong>, in the largest type on the screen — with the <strong>Edge Lord</strong> title as a badge beneath it. Winner is determined by the <code>winCondition</code> setting, so a lowest-wins game crowns its Edge Lord correctly.</p>
+    <p>Ties produce co-Edge Lords rather than a tiebreak; the app doesn't know your house rules and shouldn't pretend to. From here the only actions are export, copy standings, rematch with the same roster and positions, or new game.</p>
+
+    <h3>Table presence</h3>
+    <p>A score change briefly swells the tab and animates the delta (<code>+7</code>) so the whole table sees who just scored. Cheap to build, and it's what makes the app feel like it belongs on the table rather than in someone's hand. Double-tap for +1 keeps trick-taking games fast.</p>
+  </section>
+
+  <section id="v10">
+    <span class="tab now">v1.0</span>
+    <h2>v1.0 — Local scope</h2>
+    <p>Ships as a self-contained PWA with no network dependency whatsoever. This is the version that proves the mechanic.</p>
+
+    <div class="scope">
+      <div class="scope-card">
+        <h4>Core</h4>
+        <ul>
+          <li>Perimeter tabs, drag, rotation, edge packing</li>
+          <li>2–16 players, auto-arrange, arrange-mode lock</li>
+          <li>Player names, colors, and animal emoji — random on creation, changeable any time</li>
+          <li>Total-only or round-and-total display</li>
+          <li>Edge-anchored detail panel</li>
+          <li>Rounds with End Round and round history grid</li>
+          <li>Leader star on the tab's outer strip</li>
+          <li>Last round's winner lit along the tab's inward edge</li>
+          <li>Global undo, lowest-wins toggle</li>
+          <li>End Game standings, rematch, Edge Lord</li>
+          <li>Legible without the joke: plain labels, real contrast, labelled controls, live-region score announcements</li>
+          <li>Accessible names never compact — a tab reads "Fiona, 42 points" to a screen reader at every visual tier</li>
+        </ul>
+      </div>
+      <div class="scope-card">
+        <h4>Table hardware</h4>
+        <ul>
+          <li>Screen Wake Lock — the screen must not sleep mid-game</li>
+          <li>PWA: manifest, service worker, add-to-home-screen</li>
+          <li>Install option as one row on the export screen — no banner</li>
+          <li>Full offline operation</li>
+          <li>Orientation and resize resilience</li>
+        </ul>
+      </div>
+      <div class="scope-card">
+        <h4>Persistence</h4>
+        <ul>
+          <li>localStorage autosave of live game</li>
+          <li>Saved rosters ("the regulars")</li>
+          <li>Rolling buffer of the last three finished games</li>
+          <li>JSON export of a finished game</li>
+          <li>Copy final standings as plain text for the group chat</li>
+        </ul>
+      </div>
+      <div class="scope-card">
+        <h4>QR roster transfer</h4>
+        <ul>
+          <li>Device A shows a QR containing the roster itself</li>
+          <li>Device B scans it — done</li>
+          <li>No keys, no relays, no network</li>
+          <li>Solves the stated pain at a fraction of the cost of sync</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="note">
+      <span class="label">Why QR roster transfer belongs in 1.0</span>
+      <p>A QR code comfortably carries about 2KB. A ten-player roster is roughly 200 bytes. Moving player groups between devices — the actual thing that needed solving — turns out not to require any sync infrastructure at all. It works on a plane. Roughly a day of work.</p>
+    </div>
+
+    <h3>The last-three-games buffer</h3>
+    <p>A rolling local buffer of the <strong>last three completed games</strong>. It's the smallest thing that fixes the two real complaints — "we forgot to export" and "what did we score last time?" — and it's a fixed-length array in <code>localStorage</code>, so it needs nothing v1.0 doesn't already have.</p>
+    <p>Three rather than unlimited is deliberate. It stays a buffer rather than a history feature: no list to manage, no storage growing without bound, no implication that the app is an archive. The fourth game drops off silently, and export stays the way to keep something permanently.</p>
+    <p>v1.1 doesn't create this — it <em>carries</em> it, publishing each buffered game as a <code>keepingtabs/game/&lt;id&gt;</code> event so a new device can pull the last three down rather than starting blank.</p>
+
+    <h4>Explicitly not in 1.0</h4>
+    <ul>
+      <li>Any network calls, accounts, or keys</li>
+      <li>Open-ended game history — the buffer stops at three, and there's no browsing, searching, or importing past that</li>
+      <li>Named score categories or per-game templates</li>
+      <li>Turn timers, dice, or anything that isn't score</li>
+    </ul>
+  </section>
+
+  <section id="v11">
+    <span class="tab next">v1.1</span>
+    <h2>v1.1 — The sync layer</h2>
+    <p>A bolt-on behind a single <strong>Sync</strong> screen. Because v1.0's local cache is already authoritative, this layer only ever reconciles — it never becomes a dependency, and the app keeps working identically with sync switched off.</p>
+
+    <h3>Why nostr fits</h3>
+    <ul>
+      <li>No accounts, no email, no passwords, no backend — the app stays a static file on GitHub Pages indefinitely.</li>
+      <li><strong>NIP-78</strong> (<code>kind 30078</code>) is application-specific addressable data, keyed by a <code>d</code> tag and <em>replaceable</em>. "Latest roster" is exactly one event, overwritten in place. No storage scheme to invent.</li>
+      <li><strong>NIP-44</strong> self-encryption means relays hold opaque ciphertext. Player names are personal data and shouldn't sit in the clear on a stranger's relay.</li>
+    </ul>
+
+    <h3>Event layout</h3>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th><code>d</code> tag</th><th>Holds</th><th>Shape</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="num">keepingtabs/rosters</td><td>All saved player groups</td><td>Replaceable, one event</td></tr>
+          <tr><td class="num">keepingtabs/prefs</td><td>Display mode, theme, defaults</td><td>Replaceable, one event</td></tr>
+          <tr><td class="num">keepingtabs/game/&lt;id&gt;</td><td>One completed game</td><td>One event per game</td></tr>
+          <tr><td class="num">keepingtabs/index</td><td>Game ids plus summaries</td><td>Replaceable, one event</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>Splitting games into individual events rather than one growing history blob keeps every event far below relay size limits and makes partial sync trivial.</p>
+    <p>The <code>game</code> events are how v1.0's last-three-games buffer travels. v1.1 publishes each buffered game and <strong>imports them onto a new device</strong>, so a freshly paired phone arrives with the last three results already in place instead of starting blank. The buffer itself is v1.0 and works with sync switched off — v1.1 only moves it between devices.</p>
+
+    <h3>Device transfer</h3>
+    <p>The user's terminology is never <em>nostr</em> or <em>nsec</em>. In the interface it is a <strong>Sync Code</strong>. Two rules make the QR handoff safe:</p>
+    <ol class="body-list">
+      <li><strong>Generate a fresh, app-specific key. Never accept an existing nostr identity.</strong> If someone pastes in the key behind their real nostr identity and the app throws it on screen at a party, that's a genuine compromise of something that matters. Don't offer the input field at all.</li>
+      <li><strong>Encrypt the QR payload with <code>ncryptsec</code> (NIP-49) under a short PIN.</strong> Device A shows the code and a four-digit number; you say the number out loud to whoever's holding device B. A photograph taken across the table is useless on its own.</li>
+    </ol>
+
+    <h3>Conflict and clock handling</h3>
+    <ul>
+      <li>Last-write-wins is acceptable — this is a shared device on a table, not a collaborative document.</li>
+      <li>Replaceable events resolve by <code>created_at</code>, so a device with a wrong clock can publish a "future" event that permanently shadows good data. Always publish with <code>created_at</code> greater than the newest seen, and keep a monotonic <code>rev</code> counter inside the encrypted payload that is trusted over the timestamp.</li>
+      <li>Writes go to an outbox while offline and flush on reconnect.</li>
+      <li>Publish to five or six relays in parallel; the relay list is user-editable.</li>
+    </ul>
+
+    <div class="note risk">
+      <span class="label">Framing, honestly</span>
+      <p>Public relays make no durability promise — they prune, go down, and disappear. This is <em>convenience sync</em>, not <em>durable backup</em>. File export stays in the product as the thing you do once a year. And there is no recovery path: lose every device, lose everything. That's the real price of having no accounts, and the Sync screen should say so plainly rather than let people discover it later.</p>
+    </div>
+
+    <h4>What this quietly unlocks later</h4>
+    <p>If every player's phone subscribes to the same key, everyone watches the score live on their own device. That's a different app and a scope explosion — but it's a door this architecture leaves open rather than closes.</p>
+  </section>
+
+  <section id="data">
+    <span class="tab">Data</span>
+    <h2>Data model</h2>
+    <p>One versioned blob in <code>localStorage</code> under <code>keepingtabs.state</code>. The <code>version</code> field exists so v1.1 can migrate without guessing.</p>
+<pre><code>{
+  version: 1,
+
+  prefs: {
+    scoreMode:     "total" | "round-and-total",
+    winCondition:  "high"  | "low",
+    wakeLock:      true,
+    theme:         "auto" | "light" | "dark"
+  },
+  rosters: [
+    { id, name: "Thursday Crew",
+      players: [ { name, color, emoji } ] }
+  ],
+
+  recentGames: [ /* last 3 completed, newest first */ ],
+  game: {
+    id, startedAt, round: 3,
+    players: [
+      { id, name, color, emoji: "🦊",  // unique within a game
+        edge: "left", fraction: 0.35,   // perimeter position
+        total: 42, roundScore: 7 }
+    ],
+    rounds: [                            // committed rounds
+      { n: 1, scores: { playerId: 12 } }
+    ],
+    log: [                               // the undo stack
+      { id, ts, type: "delta" | "commit-round" | "rename",
+        playerId, value, roundNo }
+    ]
+  }
+}</code></pre>
+    <p>The <code>log</code> is the single source of truth for undo. Totals are derived state — if they ever disagree with the log, the log wins and totals get recomputed.</p>
+  </section>
+
+  <section id="tech">
+    <span class="tab">Tech</span>
+    <h2>Technical shape</h2>
+
+    <h3>v1.0</h3>
+    <ul>
+      <li>Single-file vanilla HTML/CSS/JS. No framework, no build step, no dependency rot. Push to <code>gh-pages</code> and it's live.</li>
+      <li><strong>Pointer Events</strong> throughout — never separate mouse and touch paths. <code>touch-action: none</code> on tabs.</li>
+      <li>CSS <code>transform: rotate()</code> for tab orientation; layout in JS from the edge/fraction model.</li>
+      <li>Service worker with a cache-first strategy over a tiny, fully-versioned asset list.</li>
+    </ul>
+
+    <h3>The install prompt</h3>
+    <p>One row on the Sync &amp; Export screen — the export screen in v1.0, before sync exists. No banner, no interstitial, no trigger logic, and <strong>no dismissal flag, because there is nothing to dismiss.</strong></p>
+    <p>That screen is the right and only place because someone standing there is already asking <em>how do I not lose this?</em>, and installing is a real answer to it. A prompt that answers the question the user is currently asking is information; the same words anywhere else are marketing. It's reached naturally from End Game, which is where export already lives, so the option doesn't have to chase anyone to be found.</p>
+    <p>The row hides when the app is already installed — gate on <code>display-mode: standalone</code> and, on iOS, <code>navigator.standalone</code>. An installed app offering to install itself is the most common PWA bug there is.</p>
+    <p>On Chromium, <code>beforeinstallprompt</code> gives a one-tap install; the event is single-use, so it's re-captured on each fire rather than stashed once. On iOS no such API exists, so the row shows the Add to Home Screen steps instead.</p>
+
+    <h3>Vendored dependencies</h3>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Library</th><th class="num">Approx.</th><th>Needed for</th><th>Phase</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>QR encoder</td><td class="num">~10KB</td><td>Displaying roster and sync codes</td><td>1.0</td></tr>
+          <tr><td>jsQR</td><td class="num">~40KB</td><td>Scanning — see note below</td><td>1.0</td></tr>
+          <tr><td>@noble/curves + hashes</td><td class="num">~60KB</td><td>Schnorr signing for nostr events</td><td>1.1</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>Everything is vendored into the repo as ESM files. Importing from a CDN would break offline operation, which defeats the point of the PWA.</p>
+
+    <div class="note risk">
+      <span class="label">Scanner compatibility</span>
+      <p><code>BarcodeDetector</code> isn't available in Safari, and iOS is very likely the table device. The <code>jsQR</code> fallback isn't optional — feature-detect and prefer the native API where it exists, but assume the fallback is the path most users take.</p>
+    </div>
+  </section>
+
+  <section id="risks">
+    <span class="tab">Risks</span>
+    <h2>Risks &amp; sharp edges</h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Risk</th><th>Mitigation</th><th class="num">Phase</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Accidental drag during scoring</td>
+            <td>Hold-to-lift threshold plus a default-locked arrange mode</td>
+            <td class="num">1.0</td>
+          </tr>
+          <tr>
+            <td>16 players unreadable on a phone</td>
+            <td>Capacity math clears the cap with both numbers intact; ladder, edge packing, 48px floor and spill-to-next-edge cover clustering</td>
+            <td class="num">1.0</td>
+          </tr>
+          <tr>
+            <td>Tabs collide with OS chrome — the iOS home indicator, notch, and Safari toolbars all sit exactly where bottom and top tabs go</td>
+            <td><code>viewport-fit=cover</code> plus <code>env(safe-area-inset-*)</code> folded into each edge's anchor offset, so tab depth is measured from the safe area rather than the raw viewport</td>
+            <td class="num">1.0</td>
+          </tr>
+          <tr>
+            <td>Bottom-edge drags fight the iOS swipe-up-for-home gesture</td>
+            <td>Keep interactive tab content clear of the bottom gesture strip; verify on a real device during M1 rather than assuming</td>
+            <td class="num">1.0</td>
+          </tr>
+          <tr>
+            <td>Sixteen colors indistinguishable, especially for color-blind players</td>
+            <td>Color is never the sole identifier — the animal emoji rides on every tab at every size, and works regardless of color vision or language</td>
+            <td class="num">1.0</td>
+          </tr>
+          <tr>
+            <td>Emoji render inconsistently across platforms, or fall back to tofu boxes on older devices</td>
+            <td>Curated pool capped at Unicode 9.0; silhouettes chosen to stay distinct at 20px; a light disc behind the glyph so dark animals survive dark tab colors</td>
+            <td class="num">1.0</td>
+          </tr>
+          <tr>
+            <td>Screen sleeps mid-game</td>
+            <td>Wake Lock, re-acquired on visibility change; it silently drops on tab switch</td>
+            <td class="num">1.0</td>
+          </tr>
+          <tr>
+            <td>Browser clears localStorage</td>
+            <td>Prompt to install as PWA; export nudge at game end</td>
+            <td class="num">1.0</td>
+          </tr>
+          <tr>
+            <td>Private key photographed off the screen</td>
+            <td>App-specific key only, plus PIN-encrypted <code>ncryptsec</code> payload</td>
+            <td class="num">1.1</td>
+          </tr>
+          <tr>
+            <td>Relay data pruned or relay disappears</td>
+            <td>Multi-relay publish; sync framed as convenience, file export retained</td>
+            <td class="num">1.1</td>
+          </tr>
+          <tr>
+            <td>Clock skew shadows good data permanently</td>
+            <td>Monotonic <code>created_at</code> guard plus an internal <code>rev</code> counter</td>
+            <td class="num">1.1</td>
+          </tr>
+          <tr>
+            <td>No account recovery at all</td>
+            <td>Stated plainly in the Sync screen; export remains the real backup</td>
+            <td class="num">1.1</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="build">
+    <span class="tab">Build</span>
+    <h2>Build order</h2>
+    <p><strong>M1–M7 are build milestones, not releases.</strong> Only two things ship: <strong>v1.0 at M5</strong> and <strong>v1.1 at M7</strong>. The letters keep the two schemes from colliding — numbering the milestones v0.1–v0.7 would put v0.6 and v0.7 <em>after</em> v1.0, which reads like the version going backwards.</p>
+    <p>M1 exists to answer one question before anything else gets built: does dragging a tab around the perimeter actually feel good? If it doesn't, the rest of the plan is wrong.</p>
+    <div class="milestones">
+      <div class="ms">
+        <div class="ms-id">M1</div>
+        <div class="ms-body">
+          <div class="ms-title">Perimeter prototype</div>
+          <div class="ms-desc">Drag, edge projection, inward-protruding tabs, rotation, packing at 16 players, safe-area insets. Throwaway code, no persistence. Test on a real phone on a real table — that's the only way to know whether the feel is right.</div>
+        </div>
+      </div>
+      <div class="ms">
+        <div class="ms-id">M2</div>
+        <div class="ms-body">
+          <div class="ms-title">Scoring core</div>
+          <div class="ms-desc">Players, the event log, adjustment pad, global undo, localStorage autosave.</div>
+        </div>
+      </div>
+      <div class="ms">
+        <div class="ms-id">M3</div>
+        <div class="ms-body">
+          <div class="ms-title">Rounds and the detail panel</div>
+          <div class="ms-desc">Edge-anchored rotated panel, End Round, round history grid, lowest-wins, leader star and last-round bar.</div>
+        </div>
+      </div>
+      <div class="ms">
+        <div class="ms-id">M4</div>
+        <div class="ms-body">
+          <div class="ms-title">Setup, rosters, QR transfer</div>
+          <div class="ms-desc">Player entry, color assignment, saved rosters, QR show and scan.</div>
+        </div>
+      </div>
+      <div class="ms">
+        <div class="ms-id">M5</div>
+        <div class="ms-body">
+          <div class="ms-title">Table hardening</div>
+          <div class="ms-desc">PWA, service worker, wake lock, export, last-three-games buffer, orientation handling. <strong>v1.0 ships here.</strong></div>
+        </div>
+      </div>
+      <div class="ms b">
+        <div class="ms-id">M6</div>
+        <div class="ms-body">
+          <div class="ms-title">Sync foundation</div>
+          <div class="ms-desc">Key generation, NIP-44 encryption, NIP-78 publish and fetch, relay pool, offline outbox.</div>
+        </div>
+      </div>
+      <div class="ms b">
+        <div class="ms-id">M7</div>
+        <div class="ms-body">
+          <div class="ms-title">Sync screen and device handoff</div>
+          <div class="ms-desc">PIN-encrypted QR, reconciliation, conflict guards, importing the recent-games buffer onto a new device, plain-language status. <strong>v1.1 ships here.</strong></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="open">
+    <span class="tab">Open</span>
+    <h2>Still open</h2>
+    <ul>
+      <li><strong>Default relay list.</strong> Pick five or six with a track record; revisit before v1.1 ships rather than now.</li>
+      <li><strong>Portrait versus landscape default.</strong> Landscape gives four usable edges more evenly; portrait is how people pick a phone up. May want to nudge toward landscape at setup.</li>
+      <li><strong>Tab shape.</strong> Literal file-folder tabs with an angled shoulder, or plain rounded rectangles? Affects the whole visual identity and is worth prototyping both ways in M1.</li>
+    </ul>
+  </section>
+
+</div>
+
+</body>
+</html>
