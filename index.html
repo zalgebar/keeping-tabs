@@ -159,7 +159,9 @@
     border-radius: 2px; background: #FFD98A; display: none;
   }
   .tab.won-round .bar { display: block; }
-  .tab .star { position: absolute; bottom: 2px; font-size: 13px; line-height: 1; display: none; color: #FFD98A; }
+  /* offset by the bleed so the star stays inside the safe area — the
+     home indicator sits exactly where the bleed is. */
+  .tab .star { position: absolute; bottom: calc(2px + var(--bleed, 0px)); font-size: 13px; line-height: 1; display: none; color: #FFD98A; }
   .tab.leading .star { display: block; }
 
   @media (prefers-reduced-motion: reduce) {
@@ -436,6 +438,7 @@ function render(rect) {
     el.style.width = p._len + "px";
     el.style.height = (DEPTH + bleed) + "px";
     el.style.paddingBottom = (PAD_OUT + bleed) + "px";
+    el.style.setProperty("--bleed", bleed + "px");
     el.style.transform = p._transform;
     // Transform is only allowed to animate when a tab stays on the same
     // edge. CSS interpolates the whole matrix, so transitioning across a
