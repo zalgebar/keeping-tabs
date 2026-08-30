@@ -4,6 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
 <meta name="color-scheme" content="dark light">
+<!-- Without these iOS runs the standalone app inset below the status bar and
+     env(safe-area-inset-*) reports 0, so no bleed is possible and the home
+     indicator lands on top of tab content. black-translucent is what makes
+     the webview full-screen and the insets real. -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>Keeping Tabs — M1 perimeter prototype</title>
 <style>
   /* ============================================================
@@ -38,10 +45,10 @@
 
   /* probe for env() safe-area insets — read via computed padding */
   #probe {
-    position: fixed; top: 0; left: 0; width: 0; height: 0;
+    position: fixed; top: 0; left: 0; width: 1px; height: 1px;
     padding: env(safe-area-inset-top) env(safe-area-inset-right)
              env(safe-area-inset-bottom) env(safe-area-inset-left);
-    visibility: hidden; pointer-events: none;
+    opacity: 0; pointer-events: none; z-index: -1;
   }
 
   /* ---------- centre ---------- */
@@ -68,8 +75,8 @@
     border-radius: 10px;
     padding: 14px 16px;
     display: flex; flex-direction: column; gap: 12px;
-    min-width: 186px;
-    max-width: 300px;
+    min-width: 0;
+    max-width: min(300px, 100%);
   }
 
   .hub h1 {
@@ -98,6 +105,7 @@
   }
 
   .hint { font-size: 12px; color: var(--ink-dim); max-width: 30ch; }
+  #centre > .hub { overflow: hidden; }
 
   /* ---------- tabs ---------- */
 
@@ -616,10 +624,13 @@ function report(p) {
   const counts = EDGES.map(e => `${e[0].toUpperCase()}${players.filter(x => x.edge === e).length}`).join(" ");
   const lens = players.length ? Math.round(Math.min(...players.map(x => x._len || 0))) : 0;
   const insets = `${safe.top|0}/${safe.right|0}/${safe.bottom|0}/${safe.left|0}`;
+  const standalone = (window.matchMedia && matchMedia("(display-mode: standalone)").matches) ||
+                     navigator.standalone === true;
   readout.textContent =
     `${counts}   min ${lens}px\n` +
-    `safe inset ${insets}\n` +
-    (p ? `${p.first} → ${p.edge} ${p.fraction.toFixed(2)}` : `${Math.round(rect.r - rect.l)}×${Math.round(rect.b - rect.t)}`);
+    `inset ${insets}  ${standalone ? "standalone" : "browser"}\n` +
+    `${window.innerWidth}×${window.innerHeight}  screen ${screen.width}×${screen.height}\n` +
+    (p ? `${p.first} → ${p.edge} ${p.fraction.toFixed(2)}` : "");
 }
 
 /* ============================================================
