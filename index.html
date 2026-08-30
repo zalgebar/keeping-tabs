@@ -312,7 +312,7 @@ const STORE = "keepingtabs.state";
    its own build. Not a commit hash: a commit cannot contain its own hash,
    and amending one in only ever leaves it pointing at the commit before.
    The commit message names the build, so `git log --grep` maps it back. */
-const BUILD = "0830-2";
+const BUILD = "0830-3";
 
 /* Whether this context can persist at all. Private mode, a data: URL and
    a full quota all throw, and the app has to keep working regardless. */
@@ -509,6 +509,13 @@ function safeRect() {
 function edgeLength(edge, rect) {
   return (edge === "top" || edge === "bottom") ? rect.r - rect.l : rect.b - rect.t;
 }
+/* The whole edge, corners included. Tabs may not use this — they would
+   collide with the adjoining edge — but a modal panel may. */
+function edgeRange(edge, rect) {
+  return { start: (edge === "top" || edge === "bottom") ? rect.l : rect.t,
+           length: edgeLength(edge, rect) };
+}
+
 function edgeSpan(edge, rect) {
   const len = edgeLength(edge, rect);
   const start = (edge === "top" || edge === "bottom") ? rect.l : rect.t;
@@ -601,8 +608,12 @@ function spillOverfullEdges(rect) {
    screen so it can never run off either. */
 function panelSize(edge, rect) {
   const v = viewport();
-  const span = edgeSpan(edge, rect).length;
-  const len = Math.max(MIN_LEN, Math.min(span, 330));
+  /* Runs corner to corner. The scrim covers everything else while a panel
+     is open, so the reservation that keeps tabs out of the corners does
+     not apply — and on a phone that is 242px of usable width against the
+     full 402. */
+  const full = edgeRange(edge, rect).length;
+  const len = Math.max(MIN_LEN, Math.min(full, 420));
   const across = (edge === "top" || edge === "bottom") ? v.h : v.w;
   /* Reserve the opposite edge's tabs plus a small margin. The margin was
      40, which squeezed the keypad onto its 34px floor on a phone; 24
@@ -631,9 +642,10 @@ function render(rect) {
 
     let along = p._along;
     if (open) {
-      const span = edgeSpan(p.edge, rect);
+      const range = edgeRange(p.edge, rect);      // corners included
       const mid = p._along + p._len / 2;
-      along = clamp(mid - size.len / 2, span.start, span.start + span.length - size.len);
+      along = clamp(mid - size.len / 2, range.start,
+                    range.start + Math.max(0, range.length - size.len));
     }
 
     el.style.width = size.len + "px";
