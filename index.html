@@ -312,7 +312,7 @@ const STORE = "keepingtabs.state";
    its own build. Not a commit hash: a commit cannot contain its own hash,
    and amending one in only ever leaves it pointing at the commit before.
    The commit message names the build, so `git log --grep` maps it back. */
-const BUILD = "0830-5";
+const BUILD = "0830-6";
 
 /* Whether this context can persist at all. Private mode, a data: URL and
    a full quota all throw, and the app has to keep working regardless. */
@@ -654,7 +654,11 @@ function render(rect) {
 
     el.style.width = size.len + "px";
     el.style.height = size.depth + "px";
-    el.style.paddingBottom = open ? "" : (PAD_OUT + bleed) + "px";
+    /* The tab's own padding reserves the star strip for the COMPACT
+       layout. An open panel does its own padding, so leaving the tab's
+       in place boxes the panel inside 24px it cannot use — visible in
+       landscape as dead space above the home indicator. */
+    el.style.padding = open ? "0px" : ("7px 0 " + (PAD_OUT + bleed) + "px");
     el.style.setProperty("--bleed", bleed + "px");
     el.style.transform = tabTransform(p.edge, along, size.len, size.depth);
 
