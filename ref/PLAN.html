@@ -647,7 +647,7 @@
 
     <h3>Tabs live inside the screen</h3>
     <p>The screen <em>is</em> the whole canvas — there is no space outside it for a tab to stick into. So every tab is anchored flush against its edge and protrudes <strong>inward</strong>, rounded only on the inward-facing side, like a bookmark hanging into the page.</p>
-    <p>Each tab is a <strong>length × depth</strong> box: length runs <em>along</em> its edge, depth reaches <em>into</em> the screen. Depth is a constant — start at 56px — and length is what varies as edges get crowded.</p>
+    <p>Each tab is a <strong>length × depth</strong> box: length runs <em>along</em> its edge, depth reaches <em>into</em> the screen. Depth is a constant — <strong>72px</strong> — and length is what varies as edges get crowded.</p>
     <p>This makes the implementation unusually clean. Author one tab component as a <code>length × depth</code> box with upright text, then place it with a single <code>translate(…) rotate(…)</code>. The four edge transforms are constants derived once. No per-edge markup, no swapping width and height for the vertical edges, and one rotation value that serves both the box and its text.</p>
 
     <h4>The center is what's left over</h4>
@@ -657,7 +657,7 @@
     <p>Two tabs on adjoining edges would collide in the corner square, so each edge's usable span excludes one tab-depth at both ends. Nothing is ever placed in a corner, and the four corners stay visually quiet — which is also where a settings affordance can live without competing with anyone's score.</p>
 
     <h4>What's inside a tab</h4>
-    <p>Two rows stacked across the tab's <em>depth</em>: emoji and name on the first, the numbers on the second. Depth is a fixed 56px and otherwise underused, so the emoji costs no length — and the round and total sit on their own row, unaffected by how far the name has had to shrink. All the length pressure falls on the name, which is the part that can afford it.</p>
+    <p>Two rows stacked across the tab's <em>depth</em>: emoji and name on the first, the numbers on the second. Depth is a fixed 72px and otherwise underused, so the emoji costs no length — and the round and total sit on their own row, unaffected by how far the name has had to shrink. All the length pressure falls on the name, which is the part that can afford it.</p>
 
     <h3>Position is stored as edge + fraction</h3>
     <p>Not <code>x/y</code>, and not a single scalar walking clockwise around the perimeter. Both of those reshuffle players when the device rotates or resizes. <code>{ edge: "right", fraction: 0.35 }</code> survives any viewport change — the person on your right stays on the right.</p>
@@ -687,7 +687,7 @@
     <p>Emoji ignore CSS <code>color</code> and render in their own palette, so they need a light disc behind them on the tab; a dark animal on a dark player color would otherwise disappear.</p>
 
     <h3>How many fit</h3>
-    <p>Measured on a 390 × 844 phone in standalone mode, with safe-area insets applied and corners reserved: the short edges have 278px of usable span each, the long edges 639px. The long edges carry roughly 2.3× what the short ones do, so auto-arrange allocates players <strong>proportionally to span</strong> rather than round-robin.</p>
+    <p>Measured on a 390 × 844 phone in standalone mode, with safe-area insets applied and corners reserved: the short edges have 246px of usable span each, the long edges 607px. The long edges carry roughly 2.5× what the short ones do, so auto-arrange allocates players <strong>proportionally to span</strong> rather than round-robin.</p>
     <p>Tabs on the same edge push each other rather than overlap — a one-dimensional relaxation pass, clamped inside the reserved corners. As length per tab shrinks, content drops in this order:</p>
     <div class="table-wrap">
       <table>
@@ -695,14 +695,24 @@
           <tr><th class="num">Tab length</th><th>Shows</th><th>Reached at</th></tr>
         </thead>
         <tbody>
-          <tr><td class="num">≥ 120px</td><td>Emoji · full name / round · total</td><td>Up to 14 players</td></tr>
-          <tr><td class="num">88–120px</td><td>Emoji · first name / round · total</td><td>15–16 players</td></tr>
-          <tr><td class="num">64–88px</td><td>Emoji · first name / total</td><td>Clustering only</td></tr>
-          <tr><td class="num">&lt; 64px</td><td>Emoji / total</td><td>Clustering only</td></tr>
+          <tr><td class="num">≥ 140px</td><td>Emoji · full name / round · total</td><td>Up to ~12 players</td></tr>
+          <tr><td class="num">100–140px</td><td>Emoji · first name / round · total</td><td>13–16 players</td></tr>
+          <tr><td class="num">72–100px</td><td>Emoji · first name / total</td><td>Clustering only</td></tr>
+          <tr><td class="num">&lt; 72px</td><td>Emoji / total</td><td>Clustering only</td></tr>
         </tbody>
       </table>
     </div>
-    <p>At the 16-player cap every tab still shows a name and both numbers. The bottom two tiers are only reachable by dragging players onto the same edge — they exist so clustering degrades gracefully, not because a full game needs them. The floor is 48px; below that an edge is full and new tabs spill to the next-emptiest one.</p>
+    <p>The bottom two tiers are mostly reachable by dragging players onto the same edge — they exist so clustering degrades gracefully. The floor is 56px; below that an edge is full and new tabs spill to the next-emptiest one.</p>
+
+    <h4>Tabs must not fill their edge</h4>
+    <p>Sizing tabs to consume the whole usable span leaves <strong>exactly zero slack</strong>, and slack is what the push mechanic runs on. With none, a neighbour can never slide out of the way — it can only snap when the sort order flips, which reads as the shove working in one direction and not the other. Tabs therefore take about <strong>92%</strong> of the span and leave the rest free.</p>
+    <p>The dragged tab is also <em>pinned</em>, with everything relaxing outward from it in both directions. Relaxing from one end instead makes the dragged tab get displaced by its own neighbour rather than displacing it. Both were found by building M1, not by reasoning about it.</p>
+
+    <div class="note">
+      <span class="label">Measured, and one caveat</span>
+      <p>Fresh auto-arrange at 16 players on 390 × 844 gives 2 top, 2 bottom, 6 left, 6 right at 110px and 102px — every tab showing emoji, first name and both numbers, with 58px of slack on the long edges.</p>
+      <p>That measurement has <strong>no safe-area insets</strong>, because desktop browsers report zero. On a notched phone in standalone the long edges lose about 93px to the island and home indicator, which at 16 players puts those tabs near 88px — one tier down, dropping the round number. Both numbers should survive to roughly 12–13 players there. Confirming this is part of the on-device pass.</p>
+    </div>
     <div class="note">
       <span class="label">Why 16 and not more</span>
       <p>Geometry allows about 34 tabs before hitting the floor. The cap is far below that because pixels stop being the constraint first: past roughly 14 people, most of the table physically can't reach the device, and the app quietly becomes one person operating it for everyone — the exact thing it exists to fix.</p>
@@ -773,7 +783,7 @@
     <p>Worth watching in M3: a visible leader can encourage pile-on in games where that matters. If play testing says it makes games worse, it becomes a preference — but not before, and not by default.</p>
 
     <h3>The detail panel is the tab, grown</h3>
-    <p>Because tabs already protrude inward, the panel doesn't need to be a separate surface sliding over the top. Tapping a tab <em>grows it further inward</em> — same anchor, same edge, same rotation, just more depth. One continuous animation from a 56px tab to a panel deep enough to hold controls, and closing it retracts back to a tab.</p>
+    <p>Because tabs already protrude inward, the panel doesn't need to be a separate surface sliding over the top. Tapping a tab <em>grows it further inward</em> — same anchor, same edge, same rotation, just more depth. One continuous animation from a 72px tab to a panel deep enough to hold controls, and closing it retracts back to a tab.</p>
     <p>That keeps the person entering their score at their own side of the table, never reaching across or reading upside down, and it means there is no moment where the player loses track of which surface is theirs. The expanded tab holds:</p>
     <ul>
       <li>A large adjustment pad — ±1, ±5, ±10, and a custom entry</li>
@@ -1017,7 +1027,7 @@
           </tr>
           <tr>
             <td>16 players unreadable on a phone</td>
-            <td>Capacity math clears the cap with both numbers intact; ladder, edge packing, 48px floor and spill-to-next-edge cover clustering</td>
+            <td>Measured at the cap with both numbers intact (insets absent); ladder, edge packing, 56px floor and spill-to-next-edge cover clustering. Insets may cost one tier on long edges — see the on-device pass</td>
             <td class="num">1.0</td>
           </tr>
           <tr>
