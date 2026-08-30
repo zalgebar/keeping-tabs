@@ -732,6 +732,10 @@
       <p>Geometry allows about 34 tabs before hitting the floor. The cap is far below that because pixels stop being the constraint first: past roughly 14 people, most of the table physically can't reach the device, and the app quietly becomes one person operating it for everyone — the exact thing it exists to fix.</p>
     </div>
 
+    <h4>No orientation default, and no prompt</h4>
+    <p>The app takes whatever orientation it is given. Capacity is <strong>identical</strong> either way — the perimeter is 2(w+h) and corner reservation is a fixed eight tab-depths, so a 390 × 844 phone offers 1828px of usable edge in portrait and 1828px in landscape. The edges only swap roles.</p>
+    <p>Nor is there anything to nudge people toward. Someone picks the device up, orients it the way they want, and sets it down; asking first is a decision with no consequence placed in front of the fun. A device lying flat also has no gravity vector to sense, so iOS generally will not auto-rotate it at all — orientation is settled once, by hand, and then stays put.</p>
+
     <h3>Drag versus tap</h3>
     <p>These must never be confused mid-game — an accidental reposition while someone is trying to score is the worst failure mode in the app. Two independent safeguards:</p>
     <ul>
@@ -1162,7 +1166,6 @@
     <h2>Still open</h2>
     <ul>
       <li><strong>Default relay list.</strong> Pick five or six with a track record; revisit before v1.1 ships rather than now.</li>
-      <li><strong>Portrait versus landscape default.</strong> Landscape gives four usable edges more evenly; portrait is how people pick a phone up. May want to nudge toward landscape at setup.</li>
     </ul>
   </section>
 
