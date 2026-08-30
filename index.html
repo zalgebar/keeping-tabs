@@ -312,7 +312,7 @@ const STORE = "keepingtabs.state";
    its own build. Not a commit hash: a commit cannot contain its own hash,
    and amending one in only ever leaves it pointing at the commit before.
    The commit message names the build, so `git log --grep` maps it back. */
-const BUILD = "0830-3";
+const BUILD = "0830-4";
 
 /* Whether this context can persist at all. Private mode, a data: URL and
    a full quota all throw, and the app has to keep working regardless. */
@@ -606,19 +606,20 @@ function spillOverfullEdges(rect) {
 
 /* Panel size: big enough for the pad, clamped to its edge and to the
    screen so it can never run off either. */
+/* An open panel is modal — the scrim covers everything else — so it is
+   not bound by the corner reservation that keeps tabs apart, and it may
+   reach a little past the opposite edge's tabs. */
+const PANEL_INSET    = 16;   // breathing room at each end of the edge
+const PANEL_MAX_LEN  = 420;
+const PANEL_MAX_DEPTH = 340;
+const PANEL_RESERVE  = 64;   // left clear on the far side
+
 function panelSize(edge, rect) {
   const v = viewport();
-  /* Runs corner to corner. The scrim covers everything else while a panel
-     is open, so the reservation that keeps tabs out of the corners does
-     not apply — and on a phone that is 242px of usable width against the
-     full 402. */
   const full = edgeRange(edge, rect).length;
-  const len = Math.max(MIN_LEN, Math.min(full, 420));
+  const len = Math.max(MIN_LEN, Math.min(full - PANEL_INSET * 2, PANEL_MAX_LEN));
   const across = (edge === "top" || edge === "bottom") ? v.h : v.w;
-  /* Reserve the opposite edge's tabs plus a small margin. The margin was
-     40, which squeezed the keypad onto its 34px floor on a phone; 24
-     buys enough back for 44px keys. */
-  const depth = Math.max(DEPTH, Math.min(300, across - DEPTH - 24)) + bleedFor(edge);
+  const depth = Math.max(DEPTH, Math.min(PANEL_MAX_DEPTH, across - PANEL_RESERVE)) + bleedFor(edge);
   return { len: len, depth: depth };
 }
 
