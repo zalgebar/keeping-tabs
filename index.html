@@ -149,25 +149,29 @@
   .tab.open .panel {
     display: flex; flex-direction: column; gap: 8px;
     width: 100%; height: 100%; padding: 10px 12px calc(12px + var(--bleed, 0px));
-    align-items: stretch;
+    align-items: stretch; min-height: 0;
   }
-  .panel .ptop { display: flex; align-items: center; gap: 8px; }
+  .panel .ptop { display: flex; align-items: center; gap: 8px; flex: none; }
   .panel .pname { font-size: 17px; font-weight: 700; flex: 1; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .panel .ptot { font-size: 34px; font-weight: 700; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
   .panel .x {
     width: 34px; height: 34px; border-radius: 8px; border: 0; cursor: pointer;
     background: rgba(0,0,0,.28); color: #fff; font-size: 17px; line-height: 1;
   }
-  .pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  /* Both grids flex to fill the panel rather than stacking to a fixed
+     height. A fixed stack overflowed on a side panel, and `overflow:
+     hidden` quietly clipped the confirm button. */
+  .pad { display: grid; grid-template-columns: repeat(3, 1fr);
+         grid-template-rows: repeat(2, minmax(0, 1fr)); gap: 6px; flex: 1; min-height: 0; }
   .pad button {
-    font: inherit; font-size: 17px; font-weight: 700; padding: 10px 0; min-height: 46px;
+    font: inherit; font-size: 17px; font-weight: 700; padding: 6px 0; min-height: 40px;
     border-radius: 9px; border: 0; cursor: pointer;
     background: rgba(255,255,255,.16); color: #fff;
     font-variant-numeric: tabular-nums;
   }
   .pad button.minus { background: rgba(0,0,0,.26); }
   .pad button:active { background: rgba(255,255,255,.34); }
-  .prow { display: flex; gap: 6px; align-items: center; }
+  .prow { display: flex; gap: 6px; align-items: center; flex: none; }
   .prow .btn2 {
     flex: 1; font: inherit; font-size: 13px; padding: 8px; min-height: 38px;
     border-radius: 8px; border: 0; cursor: pointer;
@@ -178,15 +182,19 @@
           white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: left; min-height: 1.3em; }
 
   /* keypad - drawn, never a native input, because the panel is rotated */
-  .keys { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .keys { display: grid; grid-template-columns: repeat(3, 1fr);
+          grid-template-rows: repeat(4, minmax(0, 1fr)); gap: 6px; flex: 1; min-height: 0; }
   .keys button {
-    font: inherit; font-size: 18px; font-weight: 600; padding: 8px 0; min-height: 42px;
+    font: inherit; font-size: 18px; font-weight: 600; padding: 4px 0; min-height: 34px;
     border-radius: 9px; border: 0; cursor: pointer;
     background: rgba(255,255,255,.14); color: #fff; font-variant-numeric: tabular-nums;
   }
-  .keys button.wide { grid-column: span 3; }
-  .keys button.ok { background: rgba(255,255,255,.30); font-weight: 700; }
-  .entry { font-size: 26px; font-weight: 700; text-align: center; font-variant-numeric: tabular-nums; min-height: 1.1em; }
+  .entry { font-size: 26px; font-weight: 700; text-align: right; font-variant-numeric: tabular-nums;
+           line-height: 1.15; padding-right: 4px; flex: none; }
+  /* Confirm lives on the INWARD edge, never the outer one: the bottom of a
+     panel is where the bleed and the home indicator are. */
+  .ptop.keypad .pname { text-align: center; }
+  .panel .x.ok { background: rgba(255,255,255,.30); font-weight: 700; }
 
   /* Inside #stage, not beside it. `position: fixed` on #stage creates a
      stacking context, so an open tab's z-index only competes with its
@@ -560,7 +568,10 @@ function panelSize(edge, rect) {
   const span = edgeSpan(edge, rect).length;
   const len = Math.max(MIN_LEN, Math.min(span, 330));
   const across = (edge === "top" || edge === "bottom") ? v.h : v.w;
-  const depth = Math.max(DEPTH, Math.min(300, across - DEPTH - 40)) + bleedFor(edge);
+  /* Reserve the opposite edge's tabs plus a small margin. The margin was
+     40, which squeezed the keypad onto its 34px floor on a phone; 24
+     buys enough back for 44px keys. */
+  const depth = Math.max(DEPTH, Math.min(300, across - DEPTH - 24)) + bleedFor(edge);
   return { len: len, depth: depth };
 }
 
@@ -677,17 +688,17 @@ function paintPanel(p) {
       '<div class="hist">' + hist + '</div>';
   } else {
     box.innerHTML =
-      '<div class="ptop">' +
-        '<span class="pname">' + esc(p.name) + '</span>' +
-        '<button class="x" data-act="pad" aria-label="Back">✕</button>' +
+      '<div class="ptop keypad">' +
+        '<button class="x" data-act="pad" aria-label="Cancel">✕</button>' +
+        '<span class="pname">' + p.emoji + ' ' + esc(p.name) + '</span>' +
+        '<button class="x ok" data-k="ok" aria-label="Apply">✓</button>' +
       '</div>' +
       '<div class="entry">' + (entry === "" || entry === "-" ? (entry || "0") : entry) + '</div>' +
       '<div class="keys">' +
         [1,2,3,4,5,6,7,8,9].map(n => '<button data-k="' + n + '">' + n + '</button>').join("") +
+        '<button data-k="sign">±</button>' +
         '<button data-k="0">0</button>' +
         '<button data-k="del">⌫</button>' +
-        '<button data-k="sign">±</button>' +
-        '<button class="wide ok" data-k="ok">Apply</button>' +
       '</div>';
   }
 }
