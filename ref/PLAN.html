@@ -544,6 +544,10 @@
         <dd>Winner only. <strong>Edge Lord</strong> on the end-of-game screen, and nothing for last place.</dd>
       </div>
       <div class="dec">
+        <dt>Tab shape</dt>
+        <dd>Straight sides, 12px rounded corners on the inward face only, with a <strong>bevel</strong> finish — a highlight along the inward lip and lit side edges. No shadow at the bezel.</dd>
+      </div>
+      <div class="dec">
         <dt>Player identity</dt>
         <dd>Name, color, and a random <strong>animal emoji</strong> assigned on creation and changeable any time. Replaces initials as the compact identifier.</dd>
       </div>
@@ -655,6 +659,11 @@
 
     <h4>Corners are reserved</h4>
     <p>Two tabs on adjoining edges would collide in the corner square, so each edge's usable span excludes one tab-depth at both ends. Nothing is ever placed in a corner, and the four corners stay visually quiet — which is also where a settings affordance can live without competing with anyone's score.</p>
+
+    <h4>Lighting must not cost colour</h4>
+    <p>The tab is lit rather than flat: a highlight along the inward lip and along the side edges, so it reads as a physical object on the table instead of a coloured fill. The obvious companion — a shadow where the tab meets the bezel — is <strong>deliberately absent</strong>.</p>
+    <p>Tested across the player palette, darkening the lower half of a tab visibly costs colour separation: green and teal begin to converge, and the olive goes muddy. Colour is one of the three player identifiers, so any treatment that mutes it works against the same requirement the animal emoji exists to satisfy. <strong>Any future finish has to leave saturation alone.</strong></p>
+    <p>The finish is applied on an overlay, not the tab's own shadow, which the lifted state owns — otherwise picking a tab up erases its finish.</p>
 
     <h4>What's inside a tab</h4>
     <p>Two rows stacked across the tab's <em>depth</em>: emoji and name on the first, the numbers on the second. Depth is a fixed 72px and otherwise underused, so the emoji costs no length — and the round and total sit on their own row, unaffected by how far the name has had to shrink. All the length pressure falls on the name, which is the part that can afford it.</p>
@@ -1154,7 +1163,6 @@
     <ul>
       <li><strong>Default relay list.</strong> Pick five or six with a track record; revisit before v1.1 ships rather than now.</li>
       <li><strong>Portrait versus landscape default.</strong> Landscape gives four usable edges more evenly; portrait is how people pick a phone up. May want to nudge toward landscape at setup.</li>
-      <li><strong>Tab shape.</strong> Literal file-folder tabs with an angled shoulder, or plain rounded rectangles? Affects the whole visual identity and is worth prototyping both ways in M1.</li>
     </ul>
   </section>
 
