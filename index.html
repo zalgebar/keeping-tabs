@@ -305,9 +305,11 @@ const HOLD_MS = 350;
 const SLOP    = 8;
 const MAX_PLAYERS = 16;
 const STORE = "keepingtabs.state";
-/* Bumped by hand each commit so a screenshot identifies its own build —
-   there is no build step to inject it. */
-const BUILD = "d91206a";
+/* Date-sequence, bumped by hand each commit, so a screenshot identifies
+   its own build. Not a commit hash: a commit cannot contain its own hash,
+   and amending one in only ever leaves it pointing at the commit before.
+   The commit message names the build, so `git log --grep` maps it back. */
+const BUILD = "0830-1";
 
 /* Whether this context can persist at all. Private mode, a data: URL and
    a full quota all throw, and the app has to keep working regardless. */
