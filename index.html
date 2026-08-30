@@ -159,13 +159,17 @@
   .tab.open .compact { display: none; }
   .panel { display: none; }
   .tab.open .panel {
-    display: flex; flex-direction: column; gap: 8px;
-    width: 100%; height: 100%; padding: 10px 12px calc(12px + var(--bleed, 0px));
+    display: flex; flex-direction: column; gap: 6px;
+    width: 100%; height: 100%; padding: 8px 12px calc(10px + var(--bleed, 0px));
     align-items: stretch; min-height: 0;
   }
-  .panel .ptop { display: flex; align-items: center; gap: 8px; flex: none; }
+  .panel .ptop { display: flex; align-items: center; gap: 8px; flex: none; line-height: 1; }
   .panel .pname { font-size: 17px; font-weight: 700; flex: 1; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .panel .ptot { font-size: 34px; font-weight: 700; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+  .panel .ptot { font-size: 32px; font-weight: 700; letter-spacing: -.02em;
+                 font-variant-numeric: tabular-nums; line-height: 1; }
+  /* The pending delta, shown the way a tab shows round-then-total. */
+  .panel .pend { font-size: 17px; font-weight: 600; opacity: .85; font-variant-numeric: tabular-nums; }
+  .panel .x.ok { background: rgba(255,255,255,.30); font-weight: 700; }
   .panel .x {
     width: 34px; height: 34px; border-radius: 8px; border: 0; cursor: pointer;
     background: rgba(0,0,0,.28); color: #fff; font-size: 17px; line-height: 1;
@@ -185,7 +189,7 @@
   .pad button:active { background: rgba(255,255,255,.34); }
   .prow { display: flex; gap: 6px; align-items: center; flex: none; }
   .prow .btn2 {
-    flex: 1; font: inherit; font-size: 13px; padding: 8px; min-height: 38px;
+    flex: 1; font: inherit; font-size: 13px; padding: 6px; min-height: 36px;
     border-radius: 8px; border: 0; cursor: pointer;
     background: rgba(0,0,0,.24); color: #fff;
   }
@@ -205,8 +209,7 @@
            line-height: 1.15; padding-right: 4px; flex: none; }
   /* Confirm lives on the INWARD edge, never the outer one: the bottom of a
      panel is where the bleed and the home indicator are. */
-  .ptop.keypad .pname { text-align: center; }
-  .panel .x.ok { background: rgba(255,255,255,.30); font-weight: 700; }
+
 
   /* Inside #stage, not beside it. `position: fixed` on #stage creates a
      stacking context, so an open tab's z-index only competes with its
@@ -309,7 +312,7 @@ const STORE = "keepingtabs.state";
    its own build. Not a commit hash: a commit cannot contain its own hash,
    and amending one in only ever leaves it pointing at the commit before.
    The commit message names the build, so `git log --grep` maps it back. */
-const BUILD = "0830-1";
+const BUILD = "0830-2";
 
 /* Whether this context can persist at all. Private mode, a data: URL and
    a full quota all throw, and the app has to keep working regardless. */
@@ -343,7 +346,7 @@ let players = [];
 let log = [];                    // { id, ts, type:"delta", playerId, value }
 let arrangeMode = false;
 let openId = null;               // player whose panel is expanded
-let entry = null;                // keypad buffer; null means the pad is showing
+let entry = "";                  // pending delta, as a string, for whichever mode is open
 let safe = { top: 0, right: 0, bottom: 0, left: 0 };
 let totals = {};
 
@@ -373,8 +376,8 @@ function save() {
   try {
     localStorage.setItem(STORE, JSON.stringify({
       version: 1,
-      players: players.map(p => ({ id: p.id, name: p.name, color: p.color,
-                                   emoji: p.emoji, edge: p.edge, fraction: p.fraction })),
+      players: players.map(p => ({ id: p.id, name: p.name, color: p.color, emoji: p.emoji,
+                                   edge: p.edge, fraction: p.fraction, mode: p.mode })),
       log: log
     }));
     lastSave = new Date().toTimeString().slice(0, 8);
@@ -425,7 +428,8 @@ function freeColor() {
 function addPlayer(name) {
   if (players.length >= MAX_PLAYERS) return null;
   const p = { id: uid(), name: name || "Player " + (players.length + 1),
-              color: freeColor(), emoji: freeEmoji(), edge: "bottom", fraction: 0.5 };
+              color: freeColor(), emoji: freeEmoji(), edge: "bottom", fraction: 0.5,
+              mode: "pad" };
   players.push(p);
   placeNew(p);
   return p;
@@ -687,52 +691,82 @@ function rebuildTabs() {
    The panel - the tab, grown
    ============================================================ */
 
-function openPanel(p) { openId = p.id; entry = null; scrim.classList.add("on"); layout(false); }
-function closePanel() { openId = null; entry = null; scrim.classList.remove("on"); layout(false); }
+function openPanel(p) {
+  openId = p.id;
+  entry = "";                       // nothing pending until something is tapped
+  if (p.mode !== "keys" && p.mode !== "pad") p.mode = "pad";
+  scrim.classList.add("on");
+  layout(false);
+}
+
+/* Closing without confirming discards the pending delta. Nothing has
+   reached the log yet, so there is nothing to roll back. */
+function closePanel() {
+  openId = null;
+  entry = "";
+  scrim.classList.remove("on");
+  layout(false);
+}
+
+/* One log entry per confirmed edit, however many taps built it. */
+function confirmPanel(p) {
+  const pend = pendingOf();
+  entry = "";
+  if (pend) score(p, pend); else layout(false);
+  closePanel();
+}
+
+/* One header in both modes: emoji, name, pending, total, confirm. The
+   total never moves, so switching modes does not shift what you are
+   reading. `entry` is the pending delta as a string and is the ONLY
+   thing the pad and the keypad both write to — pad buttons add to it,
+   digits append to it, so switching modes needs no conversion. */
+function pendingOf() { return parseInt(entry, 10) || 0; }
 
 function paintPanel(p) {
   const box = p.el.querySelector(".panel");
-  const mine = log.filter(e => e.type === "delta" && e.playerId === p.id).slice(-6).reverse();
-  const hist = mine.length
-    ? mine.map(e => (e.value > 0 ? "+" : "") + e.value).join("   ")
-    : "No scores yet";
+  const keys = p.mode === "keys";
+  const pend = pendingOf();
+  const shown = (totals[p.id] || 0) + pend;
+  const mine = log.filter(e => e.type === "delta" && e.playerId === p.id);
 
-  if (entry === null) {
-    box.innerHTML =
-      '<div class="ptop">' +
-        '<span style="font-size:22px">' + p.emoji + '</span>' +
-        '<span class="pname">' + esc(p.name) + '</span>' +
-        '<span class="ptot">' + (totals[p.id] || 0) + '</span>' +
-        '<button class="x" data-act="close" aria-label="Close">✕</button>' +
-      '</div>' +
-      '<div class="pad">' +
-        '<button class="minus" data-d="-10">−10</button>' +
-        '<button class="minus" data-d="-5">−5</button>' +
-        '<button class="minus" data-d="-1">−1</button>' +
+  const header =
+    '<div class="ptop">' +
+      '<span style="font-size:22px">' + p.emoji + '</span>' +
+      '<span class="pname">' + esc(p.name) + '</span>' +
+      (entry === ""
+        ? ""
+        : '<span class="pend">' +
+            (entry === "-" ? "\u2212" : (pend > 0 ? "+" + pend : String(pend))) +
+          '</span>') +
+      '<span class="ptot">' + shown + '</span>' +
+      '<button class="x ok" data-act="ok" aria-label="Save and close">\u2713</button>' +
+    '</div>';
+
+  const foot =
+    '<div class="prow">' +
+      '<button class="btn2" data-act="mode">' + (keys ? "\u00b1 Pad" : "Custom") + '</button>' +
+      '<button class="btn2" data-act="clear"' + (entry === "" ? " disabled" : "") + '>Clear</button>' +
+      '<button class="btn2" data-act="undo"' + (mine.length ? "" : " disabled") + '>Undo</button>' +
+    '</div>';
+
+  const body = keys
+    ? '<div class="keys">' +
+        [1,2,3,4,5,6,7,8,9].map(n => '<button data-k="' + n + '">' + n + '</button>').join("") +
+        '<button data-k="sign">\u00b1</button>' +
+        '<button data-k="0">0</button>' +
+        '<button data-k="del">\u232b</button>' +
+      '</div>'
+    : '<div class="pad">' +
+        '<button class="minus" data-d="-10">\u221210</button>' +
+        '<button class="minus" data-d="-5">\u22125</button>' +
+        '<button class="minus" data-d="-1">\u22121</button>' +
         '<button data-d="1">+1</button>' +
         '<button data-d="5">+5</button>' +
         '<button data-d="10">+10</button>' +
-      '</div>' +
-      '<div class="prow">' +
-        '<button class="btn2" data-act="keypad">Custom</button>' +
-        '<button class="btn2" data-act="undo"' + (mine.length ? "" : " disabled") + '>Undo</button>' +
-      '</div>' +
-      '<div class="hist">' + hist + '</div>';
-  } else {
-    box.innerHTML =
-      '<div class="ptop keypad">' +
-        '<button class="x" data-act="pad" aria-label="Cancel">✕</button>' +
-        '<span class="pname">' + p.emoji + ' ' + esc(p.name) + '</span>' +
-        '<button class="x ok" data-k="ok" aria-label="Apply">✓</button>' +
-      '</div>' +
-      '<div class="entry">' + (entry === "" || entry === "-" ? (entry || "0") : entry) + '</div>' +
-      '<div class="keys">' +
-        [1,2,3,4,5,6,7,8,9].map(n => '<button data-k="' + n + '">' + n + '</button>').join("") +
-        '<button data-k="sign">±</button>' +
-        '<button data-k="0">0</button>' +
-        '<button data-k="del">⌫</button>' +
       '</div>';
-  }
+
+  box.innerHTML = header + body + foot;
 }
 
 function score(p, delta) {
@@ -761,31 +795,27 @@ stage.addEventListener("click", e => {
   const d   = e.target.closest("[data-d]");
   const k   = e.target.closest("[data-k]");
 
-  if (d) { score(p, parseInt(d.dataset.d, 10)); return; }
-  if (act) {
-    const a = act.dataset.act;
-    if (a === "close")  closePanel();
-    if (a === "undo")   undoLast(p.id);
-    if (a === "keypad") { entry = ""; layout(false); }
-    if (a === "pad")    { entry = null; layout(false); }
+  /* Pad and keypad write to the same buffer: one adds, the other appends. */
+  if (d) {
+    entry = String(pendingOf() + parseInt(d.dataset.d, 10));
+    if (entry === "0") entry = "";
+    layout(false);
     return;
   }
   if (k) {
     const key = k.dataset.k;
-    if (key === "ok") {
-      const v = parseInt(entry, 10);
-      entry = null;
-      if (!isNaN(v) && v !== 0) score(p, v); else layout(false);
-    } else if (key === "del") {
-      entry = entry.replace(/.$/, "");
-      layout(false);
-    } else if (key === "sign") {
-      entry = entry.charAt(0) === "-" ? entry.slice(1) : "-" + entry;
-      layout(false);
-    } else {
-      if (entry.replace("-", "").length < 4) entry += key;
-      layout(false);
-    }
+    if (key === "del")       entry = entry.replace(/.$/, "");
+    else if (key === "sign") entry = entry.charAt(0) === "-" ? entry.slice(1) : "-" + entry;
+    else if (entry.replace("-", "").length < 4) entry += key;
+    layout(false);
+    return;
+  }
+  if (act) {
+    const a = act.dataset.act;
+    if (a === "ok")    confirmPanel(p);
+    if (a === "clear") { entry = ""; layout(false); }
+    if (a === "undo")  { entry = ""; undoLast(p.id); }
+    if (a === "mode")  { p.mode = p.mode === "keys" ? "pad" : "keys"; save(); layout(false); }
   }
 });
 
