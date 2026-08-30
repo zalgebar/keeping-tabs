@@ -330,37 +330,46 @@ function layout() {
     const lo = span.start + half;
     const hi = span.start + span.length - half;
     const pitch = len + GAP;
-    let centres = group.map(p => clamp(span.start + p.fraction * span.length, lo, hi));
+    const centres = group.map(p => clamp(span.start + p.fraction * span.length, lo, hi));
 
-    // Relaxation. The tab being dragged is PINNED and everything is
-    // pushed away from it in both directions. Relaxing from index 0
-    // instead makes the shove one-sided: approaching a neighbour from
-    // its right displaces the dragged tab rather than the neighbour.
+    // Relaxation. The dragged tab is PINNED and neighbours are pushed
+    // away from it in both directions, so it holds the spot the finger
+    // chose. Relaxing from index 0 instead makes the shove one-sided:
+    // approaching a neighbour from its right displaces the dragged tab
+    // rather than the neighbour.
     const pin = group.findIndex(p => p.lifted);
 
     if (pin >= 0) {
       for (let i = pin + 1; i < n; i++) centres[i] = Math.max(centres[i], centres[i - 1] + pitch);
       for (let i = pin - 1; i >= 0; i--) centres[i] = Math.min(centres[i], centres[i + 1] - pitch);
-      // A shoved run can leave the edge; slide it back so it fits.
-      const overRight = centres[n - 1] - hi;
-      if (overRight > 0) for (let i = 0; i < n; i++) centres[i] -= overRight;
-      const overLeft = lo - centres[0];
-      if (overLeft > 0) for (let i = 0; i < n; i++) centres[i] += overLeft;
+    } else {
+      for (let i = 1; i < n; i++) centres[i] = Math.max(centres[i], centres[i - 1] + pitch);
+      for (let i = n - 2; i >= 0; i--) centres[i] = Math.min(centres[i], centres[i + 1] - pitch);
     }
 
-    // Final monotone passes. Guarantee no overlap and stay in bounds —
-    // on a full edge this can override the pin, which is correct: there
-    // is nowhere left to push.
-    for (let i = 1; i < n; i++) centres[i] = Math.max(centres[i], centres[i - 1] + pitch);
-    for (let i = n - 2; i >= 0; i--) centres[i] = Math.min(centres[i], centres[i + 1] - pitch);
-    const under = lo - centres[0];
-    if (under > 0) for (let i = 0; i < n; i++) centres[i] += under;
-    for (let i = 0; i < n; i++) centres[i] = Math.min(centres[i], hi);
+    // Only the ends may override the pin, and only once the edge has
+    // genuinely run out of room. Running these unconditionally is what
+    // made a leftward drag snap the moving tab instead of shoving the
+    // resident one.
+    if (centres[0] < lo) {
+      centres[0] = lo;
+      for (let i = 1; i < n; i++) centres[i] = Math.max(centres[i], centres[i - 1] + pitch);
+    }
+    if (centres[n - 1] > hi) {
+      centres[n - 1] = hi;
+      for (let i = n - 2; i >= 0; i--) centres[i] = Math.min(centres[i], centres[i + 1] - pitch);
+    }
 
     group.forEach((p, i) => {
+      const c = clamp(centres[i], lo, hi);
       p._len = len;
-      p._along = centres[i] - half;
+      p._along = c - half;
       p._transform = tabTransform(edge, p._along, len, rect);
+      // A tab that got shoved KEEPS its new spot. Writing the resolved
+      // position back to `fraction` is what makes displacement real
+      // rather than cosmetic — otherwise only `_along` moves and the
+      // tab springs back to its stale fraction on the next layout.
+      p.fraction = span.length > 0 ? clamp((c - span.start) / span.length, 0, 1) : 0.5;
     });
   }
 
