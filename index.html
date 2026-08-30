@@ -225,6 +225,15 @@ const MAX_LEN  = 200;
    push working in one direction and not the other. Holding ~8% back
    gives the shove somewhere to go. */
 const FILL     = 0.92;
+/* iOS standalone with an opaque status bar reports no bottom inset, yet the
+   page still runs under the home indicator — it lands on the leader star and
+   clips the total. The translucent status bar does report the inset, but it
+   shifts the viewport up without growing it, leaving a dead band along the
+   bottom. Opaque is the better trade, so the indicator clearance is supplied
+   here instead. Values are Apple's own home-indicator insets. */
+const HOME_BAR_PHONE  = 34;
+const HOME_BAR_TABLET = 20;
+
 const HOLD_MS  = 350;  // press-and-hold to lift, when locked
 const SLOP     = 8;    // movement that cancels the hold
 
@@ -285,10 +294,10 @@ function readSafeInsets() {
 function safeRect() {
   const v = viewport();
   return {
-    l: safe.left,
-    t: safe.top,
-    r: v.w - safe.right,
-    b: v.h - safe.bottom
+    l: bleedFor("left"),
+    t: bleedFor("top"),
+    r: v.w - bleedFor("right"),
+    b: v.h - bleedFor("bottom")
   };
 }
 
@@ -325,7 +334,22 @@ function edgeCapacity(edge, rect) {
    they look attached rather than hovering above a letterboxed strip —
    the background runs to the bezel while content stays inside the safe
    area, clear of the home indicator. */
-function edgeDepth(edge) { return DEPTH + (safe[edge] || 0); }
+function isStandalone() {
+  return (window.matchMedia && matchMedia("(display-mode: standalone)").matches) ||
+         navigator.standalone === true;
+}
+
+/* Effective bleed for an edge: what the browser reports, or our own
+   home-indicator clearance where it reports nothing but the bar is there. */
+function bleedFor(edge) {
+  const reported = safe[edge] || 0;
+  if (reported === 0 && edge === "bottom" && isStandalone()) {
+    return Math.min(screen.width, screen.height) >= 600 ? HOME_BAR_TABLET : HOME_BAR_PHONE;
+  }
+  return reported;
+}
+
+function edgeDepth(edge) { return DEPTH + bleedFor(edge); }
 
 function tabTransform(edge, along, len) {
   const v = viewport();
@@ -455,7 +479,7 @@ function render(rect) {
 
   for (const p of players) {
     const el = p.el;
-    const bleed = safe[p.edge] || 0;
+    const bleed = bleedFor(p.edge);
     el.style.width = p._len + "px";
     el.style.height = (DEPTH + bleed) + "px";
     el.style.paddingBottom = (PAD_OUT + bleed) + "px";
@@ -652,7 +676,7 @@ function report(p) {
                      navigator.standalone === true;
   readout.textContent =
     `${counts}   min ${lens}px\n` +
-    `inset ${insets}  ${standalone ? "standalone" : "browser"}\n` +
+    `inset ${insets} -> ${EDGES.map(bleedFor).map(function(v){return v|0}).join("/")}  ${standalone ? "standalone" : "browser"}\n` +
     `vp ${Math.round(viewport().w)}×${Math.round(viewport().h)}  inner ${window.innerWidth}×${window.innerHeight}\n` +
     `screen ${screen.width}×${screen.height}\n` +
     (p ? `${p.first} → ${p.edge} ${p.fraction.toFixed(2)}` : "");
