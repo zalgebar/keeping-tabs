@@ -96,6 +96,9 @@
   }
 
   .row { display: flex; align-items: center; gap: 10px; justify-content: space-between; }
+  /* three buttons will not fit beside a label at phone width */
+  .row.stack { flex-direction: column; align-items: stretch; gap: 6px; }
+  .row.stack label { text-align: left; }
   .row label { font-size: 13px; color: var(--ink-dim); }
 
   input[type=range] { flex: 1; min-width: 0; accent-color: #E08A4C; }
@@ -141,6 +144,22 @@
 
   /* straight sides, rounded inward corners */
   .tab { border-radius: 12px 12px 0 0; }
+
+  /* Finish sits on an overlay, not on the tab's own box-shadow, which the
+     lift state already owns. */
+  .tab::after {
+    content: ""; position: absolute; inset: 0;
+    border-radius: inherit; pointer-events: none;
+  }
+  .tab.finish-bevel::after {
+    box-shadow: inset 0 2px 0 rgba(255,255,255,.20),
+                inset 2px 0 0 rgba(255,255,255,.07),
+                inset -2px 0 0 rgba(0,0,0,.20);
+  }
+  .tab.finish-emboss::after {
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.16),
+                inset 0 -1px 0 rgba(0,0,0,.28);
+  }
 
   .tab.lifted { cursor: grabbing; filter: brightness(1.14); box-shadow: 0 0 0 2px #fff8, 0 8px 24px #0009; z-index: 10; }
   .tab.settling { transition: transform .22s cubic-bezier(.2,.9,.3,1), box-shadow .18s ease, filter .18s ease; }
@@ -193,6 +212,14 @@
       <label for="count">Players</label>
       <input id="count" type="range" min="2" max="16" value="6">
       <strong id="countVal" style="width:2ch;text-align:right">6</strong>
+    </div>
+    <div class="row stack">
+      <label>Finish</label>
+      <div class="seg" id="finish">
+        <button data-finish="flat" aria-pressed="true">Flat</button>
+        <button data-finish="bevel" aria-pressed="false">Bevel</button>
+        <button data-finish="emboss" aria-pressed="false">Emboss</button>
+      </div>
     </div>
     <div class="row">
       <label>Tabs</label>
@@ -260,6 +287,7 @@ const COLORS = ["#B3591F","#43489B","#1E5C46","#A02F2C","#6B4C9A","#0F6E77",
 
 let players = [];
 let arrangeMode = false;
+let finish = "flat";        // flat | bevel | emboss
 let safe = { top: 0, right: 0, bottom: 0, left: 0 };
 
 const stage    = document.getElementById("stage");
@@ -491,7 +519,7 @@ function render(rect) {
     // angles — visible on first paint, on spill, and on rotate. Sliding
     // along one edge is the only case where easing actually helps.
     const sameEdge = p._renderedEdge === p.edge;
-    el.className = `tab ${tierFor(p._len)}` +
+    el.className = `tab finish-${finish} ${tierFor(p._len)}` +
                    (p.lifted ? " lifted" : (sameEdge ? " settling" : "")) +
                    (p.total === best ? " leading" : "") +
                    (p.round === hot  ? " won-round" : "");
@@ -691,6 +719,13 @@ const countVal = document.getElementById("countVal");
 countEl.addEventListener("input", () => {
   countVal.textContent = countEl.value;
   setCount(+countEl.value);
+});
+
+document.getElementById("finish").addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return;
+  finish = b.dataset.finish;
+  [...e.currentTarget.children].forEach(c => c.setAttribute("aria-pressed", String(c === b)));
+  layout();
 });
 
 document.getElementById("arrange").addEventListener("click", e => {
