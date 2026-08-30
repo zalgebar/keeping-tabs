@@ -508,6 +508,12 @@
       <p>If a feature makes the tabs harder to read from across the table, it loses. The center of the screen is for game state; the edges belong to players.</p>
     </div>
 
+    <div class="note">
+      <span class="label">Design principle</span>
+      <p><strong>The app never infers the physical world.</strong> A tab moves when someone moves it, and at no other time. No sensor, rotation or orientation change is treated as intent.</p>
+      <p>Clever inference fails the same way spatial audio does: it is right often enough to be trusted, and when it is wrong the user has no model for why and no obvious way back. A scorekeeper that rearranges itself is worse than one that makes you drag a tab, because dragging always works and is always understood.</p>
+    </div>
+
     <h3>Voice</h3>
     <p>Warm and plain-spoken, with jokes used sparingly and only where they're earned. The winner of a game is crowned <strong>Edge Lord</strong> — a title, awarded once, at the moment everyone is already looking at the screen. It is not the app's word for "player": <em>Add player</em> is clearer than <em>Add edge lord</em>, and a joke repeated on every button stops being one by the second game.</p>
     <p><strong>Only first place gets a title.</strong> Last place gets nothing — no booby prize, no wooden spoon. A shared screen in the middle of a table is the wrong place to point at whoever already had the worst night, and a scorekeeper that mocks people is one they stop reaching for.</p>
