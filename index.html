@@ -8,19 +8,21 @@
      report real safe-area insets in standalone; without it env() reads 0.
      The status bar is deliberately NOT black-translucent: translucent moves
      the viewport origin up under the status bar without growing its height,
-     so the page ends one top-inset short of the screen and leaves an
-     unpaintable black band along the bottom. Opaque keeps the viewport
-     below the status bar and running to the physical bottom, which is where
-     the bleed is actually wanted. -->
+     leaving an unpaintable black band along the bottom. -->
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
-<title>Keeping Tabs — M1 perimeter prototype</title>
+<title>Keeping Tabs</title>
 <style>
   /* ============================================================
-     M1 · Perimeter prototype
-     Throwaway. Its only job is to answer whether dragging a tab
-     around the perimeter feels good. No persistence, fake data.
+     M2 - Scoring core
+     Players, the event log as source of truth, the adjustment pad,
+     global undo, localStorage autosave.
+
+     Two zones, and the rule that separates them:
+       scoring - edge-anchored, rotated, NO native inputs
+       setup   - centre, unrotated, native inputs fine
+     A rotated <input> puts the iOS keyboard against a 90-degree field.
      ============================================================ */
 
   :root {
@@ -30,29 +32,18 @@
     --ink-dim: #8C9A94;
     --hub: #1D2326;
     --rule: #2C3438;
+    --accent: #E08A4C;
   }
 
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
   html, body {
-    margin: 0;
-    height: 100%;
-    overflow: hidden;
+    margin: 0; height: 100%; overflow: hidden;
     overscroll-behavior: none;
-    background: var(--ground);
-    color: var(--ink);
+    background: var(--ground); color: var(--ink);
     font: 15px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    touch-action: none;
-    user-select: none;
-    -webkit-user-select: none;
+    touch-action: none; user-select: none; -webkit-user-select: none;
   }
-
-  /* probe for env() safe-area insets — read via computed padding */
-  /* Measures what the page can actually paint. iOS standalone under-reports
-     window.innerHeight by the top inset once the status bar is translucent,
-     which left a black band along the bottom edge. A fixed inset:0 box is
-     the layout viewport itself, so it cannot disagree with reality. */
-  #vp { position: fixed; inset: 0; pointer-events: none; z-index: -2; }
 
   #probe {
     position: fixed; top: 0; left: 0; width: 1px; height: 1px;
@@ -60,92 +51,65 @@
              env(safe-area-inset-bottom) env(safe-area-inset-left);
     opacity: 0; pointer-events: none; z-index: -1;
   }
+  /* Measures what the page can actually paint - innerHeight lies in iOS
+     standalone. A fixed inset:0 box IS the layout viewport. */
+  #vp { position: fixed; inset: 0; pointer-events: none; z-index: -2; }
 
-  /* ---------- centre ---------- */
+  /* ---------------- centre ---------------- */
 
   #centre {
-    position: fixed;
-    display: flex; flex-direction: column;
-    align-items: center; justify-content: center;
-    gap: 14px;
-    padding: 16px;
-    text-align: center;
+    position: fixed; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 12px;
+    padding: 12px; text-align: center;
   }
-
-  #centre .outline {
-    position: absolute; inset: 0;
-    border: 1px dashed var(--rule);
-    border-radius: 8px;
-    pointer-events: none;
-  }
-
   .hub {
-    background: var(--hub);
-    border: 1px solid var(--rule);
-    border-radius: 10px;
-    padding: 14px 16px;
-    display: flex; flex-direction: column; gap: 12px;
-    min-width: 0;
-    max-width: min(300px, 100%);
+    background: var(--hub); border: 1px solid var(--rule); border-radius: 12px;
+    padding: 14px; display: flex; flex-direction: column; gap: 10px;
+    min-width: 0; max-width: min(320px, 100%);
   }
-
   .hub h1 {
-    margin: 0; font-size: 13px; font-weight: 600;
-    letter-spacing: .14em; text-transform: uppercase;
-    color: var(--ink-dim);
+    margin: 0; font-size: 12px; font-weight: 600; letter-spacing: .16em;
+    text-transform: uppercase; color: var(--ink-dim);
   }
+  .lead { font-size: 13px; color: var(--ink-dim); line-height: 1.5; }
+  .lead b { color: var(--ink); font-weight: 600; }
 
-  .row { display: flex; align-items: center; gap: 10px; justify-content: space-between; }
-  .row label { font-size: 13px; color: var(--ink-dim); }
-
-  input[type=range] { flex: 1; min-width: 0; accent-color: #E08A4C; }
+  .btn {
+    font: inherit; font-size: 14px; padding: 9px 12px; border-radius: 8px;
+    background: #262E31; color: var(--ink); border: 1px solid var(--rule);
+    cursor: pointer; min-height: 40px;
+  }
+  .btn:disabled { opacity: .38; }
+  .btn.primary { background: var(--accent); color: #1A1005; border-color: var(--accent); font-weight: 600; }
+  .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .btns { display: flex; gap: 8px; }
+  .btns .btn { flex: 1; }
 
   .seg { display: flex; gap: 4px; }
   .seg button {
-    flex: 1; padding: 6px 8px; font: inherit; font-size: 12px;
+    flex: 1; padding: 7px 8px; font: inherit; font-size: 12px;
     background: #262E31; color: var(--ink-dim);
     border: 1px solid var(--rule); border-radius: 6px; cursor: pointer;
   }
-  .seg button[aria-pressed="true"] { background: #E08A4C; color: #1A1005; border-color: #E08A4C; font-weight: 600; }
-  .seg button:focus-visible { outline: 2px solid #E08A4C; outline-offset: 2px; }
+  .seg button[aria-pressed="true"] { background: var(--accent); color: #1A1005; border-color: var(--accent); font-weight: 600; }
 
-  #readout {
-    font: 11px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
-    color: var(--ink-dim); white-space: pre; min-height: 3em;
-  }
-
-  .hint { font-size: 12px; color: var(--ink-dim); max-width: 30ch; }
-  #centre > .hub { overflow: hidden; }
-
-  /* ---------- tabs ---------- */
+  /* ---------------- tabs ---------------- */
 
   #stage { position: fixed; inset: 0; pointer-events: none; }
 
   .tab {
-    position: absolute; top: 0; left: 0;
-    transform-origin: 0 0;
-    height: var(--depth);
-    pointer-events: auto;
-    cursor: grab;
-    color: #fff;
-    display: flex; flex-direction: column;
-    align-items: center; justify-content: center;
-    gap: 1px;
-    overflow: hidden;
-    transition: box-shadow .18s ease, filter .18s ease;
-    /* local y=0 is the INWARD edge, y=depth is the OUTER edge.
-       Padding reserves both strips so content never collides with
-       the inward bar or the outer star. */
+    position: absolute; top: 0; left: 0; transform-origin: 0 0;
+    pointer-events: auto; cursor: grab; color: #fff;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 1px; overflow: hidden;
+    border-radius: 12px 12px 0 0;
     padding: 7px 0 17px;
+    transition: box-shadow .18s ease, filter .18s ease;
+    /* local y=0 is the INWARD edge, y=depth is the OUTER edge */
   }
-
-  /* straight sides, rounded inward corners */
-  .tab { border-radius: 12px 12px 0 0; }
-
-  /* Bevel finish. On an overlay rather than the tab's own box-shadow,
-     which the lift state already owns. No shadow at the bezel: darkening
-     the lower half of a tab costs colour separation, and colour is a
-     player identifier. */
+  /* Bevel finish, on an overlay rather than the tab's own box-shadow which
+     the lift state owns. No shadow at the bezel: darkening the lower half
+     costs colour separation, and colour is a player identifier. */
   .tab::after {
     content: ""; position: absolute; inset: 0;
     border-radius: inherit; pointer-events: none;
@@ -153,41 +117,111 @@
                 inset 2px 0 0 rgba(255,255,255,.07),
                 inset -2px 0 0 rgba(0,0,0,.20);
   }
-
   .tab.lifted { cursor: grabbing; filter: brightness(1.14); box-shadow: 0 0 0 2px #fff8, 0 8px 24px #0009; z-index: 10; }
-  .tab.settling { transition: transform .22s cubic-bezier(.2,.9,.3,1), box-shadow .18s ease, filter .18s ease; }
+  .tab.settling { transition: transform .22s cubic-bezier(.2,.9,.3,1), width .22s cubic-bezier(.2,.9,.3,1), height .22s cubic-bezier(.2,.9,.3,1), box-shadow .18s ease, filter .18s ease; }
+  .tab.open { z-index: 30; box-shadow: 0 10px 40px #000b; cursor: default; }
 
-  /* line-height 1 on both rows: inherited 1.4 makes them taller than
-     they look and pushes content into the bar and star strips. */
   .tab .name { display: flex; align-items: baseline; gap: 5px; max-width: 100%; padding: 0 8px; line-height: 1; }
   .tab .emoji { font-size: 22px; line-height: 1; }
-  .tab .who {
-    font-size: 17px; font-weight: 600; letter-spacing: .01em;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  }
+  .tab .who { font-size: 17px; font-weight: 600; letter-spacing: .01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .tab .nums { display: flex; align-items: baseline; gap: 4px; font-variant-numeric: tabular-nums; line-height: 1; }
-  .tab .rnd { font-size: 16px; opacity: .78; }
   .tab .tot { font-size: 30px; font-weight: 700; letter-spacing: -.02em; }
 
-  /* tier: hide pieces as length shrinks */
-  .tab.t-first .who   { max-width: 8ch; }
-  .tab.t-norounds .rnd { display: none; }
-  .tab.t-emoji .who   { display: none; }
+  .tab.t-first .who { max-width: 8ch; }
+  .tab.t-emoji .who { display: none; }
   .tab.t-emoji .emoji { font-size: 24px; }
 
-  /* markers — visual placeholders, real behaviour is M3 (#18) */
-  .tab .bar {
-    position: absolute; top: 2px; left: 12%; right: 12%; height: 4px;
-    border-radius: 2px; background: #FFD98A; display: none;
-  }
-  .tab.won-round .bar { display: block; }
-  /* offset by the bleed so the star stays inside the safe area — the
-     home indicator sits exactly where the bleed is. */
   .tab .star { position: absolute; bottom: calc(2px + var(--bleed, 0px)); font-size: 13px; line-height: 1; display: none; color: #FFD98A; }
   .tab.leading .star { display: block; }
 
+  /* ---------------- expanded panel (the tab, grown) ---------------- */
+
+  /* display:contents so the compact rows participate in the tab's own
+     flex column. Must be a rule, not an inline style, or it outranks
+     the hide-when-open below. */
+  .tab .compact { display: contents; }
+  .tab.open .compact { display: none; }
+  .panel { display: none; }
+  .tab.open .panel {
+    display: flex; flex-direction: column; gap: 8px;
+    width: 100%; height: 100%; padding: 10px 12px calc(12px + var(--bleed, 0px));
+    align-items: stretch;
+  }
+  .panel .ptop { display: flex; align-items: center; gap: 8px; }
+  .panel .pname { font-size: 17px; font-weight: 700; flex: 1; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .panel .ptot { font-size: 34px; font-weight: 700; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+  .panel .x {
+    width: 34px; height: 34px; border-radius: 8px; border: 0; cursor: pointer;
+    background: rgba(0,0,0,.28); color: #fff; font-size: 17px; line-height: 1;
+  }
+  .pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .pad button {
+    font: inherit; font-size: 17px; font-weight: 700; padding: 10px 0; min-height: 46px;
+    border-radius: 9px; border: 0; cursor: pointer;
+    background: rgba(255,255,255,.16); color: #fff;
+    font-variant-numeric: tabular-nums;
+  }
+  .pad button.minus { background: rgba(0,0,0,.26); }
+  .pad button:active { background: rgba(255,255,255,.34); }
+  .prow { display: flex; gap: 6px; align-items: center; }
+  .prow .btn2 {
+    flex: 1; font: inherit; font-size: 13px; padding: 8px; min-height: 38px;
+    border-radius: 8px; border: 0; cursor: pointer;
+    background: rgba(0,0,0,.24); color: #fff;
+  }
+  .prow .btn2:disabled { opacity: .4; }
+  .hist { font-size: 12px; color: rgba(255,255,255,.72); font-variant-numeric: tabular-nums;
+          white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: left; min-height: 1.3em; }
+
+  /* keypad - drawn, never a native input, because the panel is rotated */
+  .keys { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .keys button {
+    font: inherit; font-size: 18px; font-weight: 600; padding: 8px 0; min-height: 42px;
+    border-radius: 9px; border: 0; cursor: pointer;
+    background: rgba(255,255,255,.14); color: #fff; font-variant-numeric: tabular-nums;
+  }
+  .keys button.wide { grid-column: span 3; }
+  .keys button.ok { background: rgba(255,255,255,.30); font-weight: 700; }
+  .entry { font-size: 26px; font-weight: 700; text-align: center; font-variant-numeric: tabular-nums; min-height: 1.1em; }
+
+  #scrim { position: fixed; inset: 0; background: #000; opacity: 0; pointer-events: none;
+           transition: opacity .2s ease; z-index: 20; }
+  #scrim.on { opacity: .55; pointer-events: auto; }
+
+  /* ---------------- sheet (centre, unrotated) ---------------- */
+
+  #sheet {
+    position: fixed; z-index: 40; left: 50%; top: 50%; transform: translate(-50%,-50%);
+    width: min(360px, calc(100% - 32px)); max-height: min(560px, calc(100% - 40px));
+    background: var(--hub); border: 1px solid var(--rule); border-radius: 14px;
+    padding: 14px; display: none; flex-direction: column; gap: 10px;
+    overflow: auto; touch-action: pan-y;
+  }
+  #sheet.on { display: flex; }
+  #sheet h2 { margin: 0; font-size: 12px; letter-spacing: .16em; text-transform: uppercase; color: var(--ink-dim); }
+  .plist { display: flex; flex-direction: column; gap: 6px; }
+  .prow2 { display: flex; align-items: center; gap: 8px; background: #232A2D; border-radius: 9px; padding: 6px 8px; }
+  .prow2 .chip {
+    width: 38px; height: 38px; border-radius: 9px; border: 0; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; font-size: 20px;
+  }
+  .prow2 input {
+    flex: 1; min-width: 0; font: inherit; font-size: 15px; color: var(--ink);
+    background: transparent; border: 0; border-bottom: 1px solid var(--rule); padding: 5px 2px;
+    user-select: text; -webkit-user-select: text;
+  }
+  .prow2 input:focus { outline: none; border-bottom-color: var(--accent); }
+  .prow2 .kill { width: 34px; height: 34px; border-radius: 8px; border: 0; cursor: pointer;
+                 background: transparent; color: var(--ink-dim); font-size: 17px; }
+  .swatches { display: grid; grid-template-columns: repeat(8, 1fr); gap: 5px; }
+  .swatches button, .emojis button { border: 0; border-radius: 7px; cursor: pointer; aspect-ratio: 1; }
+  .swatches button[aria-pressed="true"] { outline: 2px solid #fff; outline-offset: 1px; }
+  .swatches button:disabled, .emojis button:disabled { opacity: .25; cursor: default; }
+  .emojis { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; }
+  .emojis button { background: #232A2D; font-size: 20px; }
+
   @media (prefers-reduced-motion: reduce) {
-    .tab, .tab.settling { transition: none; }
+    .tab, .tab.settling, #scrim { transition: none; }
   }
 </style>
 </head>
@@ -195,28 +229,25 @@
 
 <div id="probe"></div>
 <div id="vp"></div>
+<div id="scrim"></div>
 <div id="stage"></div>
 
 <div id="centre">
-  <div class="outline"></div>
   <div class="hub">
-    <h1>M1 · Perimeter</h1>
-    <div class="row">
-      <label for="count">Players</label>
-      <input id="count" type="range" min="2" max="16" value="6">
-      <strong id="countVal" style="width:2ch;text-align:right">6</strong>
+    <h1>Keeping Tabs</h1>
+    <div class="lead" id="lead"></div>
+    <div class="btns">
+      <button class="btn" id="undo">Undo</button>
+      <button class="btn" id="manage">Players</button>
     </div>
-    <div class="row">
-      <label>Tabs</label>
-      <div class="seg" id="arrange">
-        <button data-arrange="off" aria-pressed="true">Locked</button>
-        <button data-arrange="on" aria-pressed="false">Arrange</button>
-      </div>
+    <div class="seg" id="arrange">
+      <button data-arrange="off" aria-pressed="true">Locked</button>
+      <button data-arrange="on" aria-pressed="false">Arrange</button>
     </div>
-    <p class="hint" id="hint">Locked: press and hold a tab to pick it up. Arrange: drag freely.</p>
-    <div id="readout"></div>
   </div>
 </div>
+
+<div id="sheet"></div>
 
 <script>
 "use strict";
@@ -225,134 +256,184 @@
    Constants
    ============================================================ */
 
-const DEPTH    = 80;   // how far a tab reaches in, measured from the SAFE edge
-const PAD_IN   = 7;    // clear of the inward bar
-const PAD_OUT  = 17;   // clear of the outer star
-const GAP      = 6;    // between neighbours on the same edge
-const MIN_LEN  = 60;   // floor; below this an edge is full
-const MAX_LEN  = 200;
-/* Tabs deliberately do NOT fill their edge. Sized to the full span they
-   leave zero slack, so a neighbour can never visibly slide out of the
-   way — it can only snap when the sort order flips, which reads as the
-   push working in one direction and not the other. Holding ~8% back
-   gives the shove somewhere to go. */
-const FILL     = 0.92;
-/* iOS standalone with an opaque status bar reports no bottom inset, yet the
-   page still runs under the home indicator — it lands on the leader star and
-   clips the total. The translucent status bar does report the inset, but it
-   shifts the viewport up without growing it, leaving a dead band along the
-   bottom. Opaque is the better trade, so the indicator clearance is supplied
-   here instead. Values are Apple's own home-indicator insets. */
+const DEPTH   = 80;
+const PAD_OUT = 17;
+const GAP     = 6;
+const MIN_LEN = 60;
+const MAX_LEN = 200;
+/* Tabs deliberately do NOT fill their edge - zero slack means a neighbour
+   can never slide out of the way, only snap when the sort order flips. */
+const FILL    = 0.92;
+/* iOS standalone with an opaque status bar reports no bottom inset yet the
+   page still runs under the home indicator. Apple's own values. */
 const HOME_BAR_PHONE  = 34;
 const HOME_BAR_TABLET = 20;
-
-const HOLD_MS  = 350;  // press-and-hold to lift, when locked
-const SLOP     = 8;    // movement that cancels the hold
+const HOLD_MS = 350;
+const SLOP    = 8;
+const MAX_PLAYERS = 16;
+const STORE = "keepingtabs.state";
 
 const EDGES = ["top", "right", "bottom", "left"];
 
-/* Curated animal pool: distinct silhouettes, nothing newer than
-   Unicode 9.0 so older devices render animals rather than tofu (#9). */
-const ANIMALS = ["🦊","🐙","🦉","🐢","🐧","🦋","🐝","🐌","🦈","🦇","🐘","🐳",
-                 "🦀","🦑","🐊","🐍","🦂","🦅","🐪","🦏","🐸","🦔","🦕","🐇",
-                 "🦎","🐟"];
-
-const NAMES = ["Ann Torres","Rai Okonkwo","Bo Lindqvist","Kit Marchetti",
-               "Sam Delacroix","Mo Farrukh","Jo Van Aken","Wren Castellanos",
-               "Dev Ramanathan","Ida Bjørnstad","Tam Nakagawa","Zev Abramowicz",
-               "Lux Oyelaran","Ola Kowalczyk","Pim Vandenberg","Ric Santamaria"];
+/* Distinct silhouettes at 20px, nothing newer than Unicode 9.0 so older
+   devices render animals rather than tofu. */
+const ANIMALS = ["\u{1F98A}","\u{1F419}","\u{1F989}","\u{1F422}","\u{1F427}","\u{1F98B}","\u{1F41D}","\u{1F40C}",
+                 "\u{1F988}","\u{1F987}","\u{1F418}","\u{1F433}","\u{1F980}","\u{1F991}","\u{1F40A}","\u{1F40D}",
+                 "\u{1F982}","\u{1F985}","\u{1F42A}","\u{1F98F}","\u{1F438}","\u{1F994}","\u{1F995}","\u{1F407}",
+                 "\u{1F98E}","\u{1F41F}","\u{1F41C}","\u{1F986}"];
 
 const COLORS = ["#B3591F","#43489B","#1E5C46","#A02F2C","#6B4C9A","#0F6E77",
                 "#8A6D1F","#2F5FA8","#7A3B6B","#3E6B2A","#A34A2E","#245C86",
                 "#6E3A8C","#186B58","#8E4A1E","#4A4E8F"];
 
 /* ============================================================
-   State
+   State - the log is the source of truth, totals are derived
    ============================================================ */
 
 let players = [];
+let log = [];                    // { id, ts, type:"delta", playerId, value }
 let arrangeMode = false;
+let openId = null;               // player whose panel is expanded
+let entry = null;                // keypad buffer; null means the pad is showing
 let safe = { top: 0, right: 0, bottom: 0, left: 0 };
+let totals = {};
 
-const stage    = document.getElementById("stage");
-const vpEl     = document.getElementById("vp");
-const centre   = document.getElementById("centre");
-const readout  = document.getElementById("readout");
-const probe    = document.getElementById("probe");
+const stage  = document.getElementById("stage");
+const centre = document.getElementById("centre");
+const probe  = document.getElementById("probe");
+const vpEl   = document.getElementById("vp");
+const scrim  = document.getElementById("scrim");
+const sheet  = document.getElementById("sheet");
+
+const uid = () => Math.random().toString(36).slice(2, 9);
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const esc = s => String(s).replace(/[&<>"']/g, c =>
+  ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+/* Totals are never stored. If they ever disagreed with the log the log
+   would win, so there is nothing to disagree with. */
+function recompute() {
+  totals = {};
+  for (const p of players) totals[p.id] = 0;
+  for (const e of log) {
+    if (e.type === "delta" && totals[e.playerId] !== undefined) totals[e.playerId] += e.value;
+  }
+}
+
+function save() {
+  try {
+    localStorage.setItem(STORE, JSON.stringify({
+      version: 1,
+      players: players.map(p => ({ id: p.id, name: p.name, color: p.color,
+                                   emoji: p.emoji, edge: p.edge, fraction: p.fraction })),
+      log: log
+    }));
+  } catch (e) { /* private mode or quota - the game keeps working */ }
+}
+
+function load() {
+  try {
+    const raw = localStorage.getItem(STORE);
+    if (!raw) return false;
+    const d = JSON.parse(raw);
+    if (!d || d.version !== 1 || !Array.isArray(d.players) || !d.players.length) return false;
+    players = d.players;
+    log = Array.isArray(d.log) ? d.log : [];
+    return true;
+  } catch (e) { return false; }
+}
+
+/* Every mutation ends here, so autosave can never be forgotten. */
+function commit() {
+  recompute();
+  save();
+  layout(true);
+  paintHub();
+}
 
 /* ============================================================
-   Geometry
+   Players
    ============================================================ */
 
-/* Never window.innerWidth/innerHeight — see #vp above. */
-function viewport() {
-  const r = vpEl.getBoundingClientRect();
-  return { w: r.width  || window.innerWidth,
-           h: r.height || window.innerHeight };
+function freeEmoji() {
+  const used = new Set(players.map(p => p.emoji));
+  const pool = ANIMALS.filter(a => !used.has(a));
+  const from = pool.length ? pool : ANIMALS;
+  return from[Math.floor(Math.random() * from.length)];
 }
+function freeColor() {
+  const used = new Set(players.map(p => p.color));
+  const pool = COLORS.filter(c => !used.has(c));
+  return (pool.length ? pool : COLORS)[0];
+}
+
+function addPlayer(name) {
+  if (players.length >= MAX_PLAYERS) return null;
+  const p = { id: uid(), name: name || "Player " + (players.length + 1),
+              color: freeColor(), emoji: freeEmoji(), edge: "bottom", fraction: 0.5 };
+  players.push(p);
+  placeNew(p);
+  return p;
+}
+
+/* A late joiner lands on the emptiest edge, after whoever is already
+   there. It must NOT auto-arrange: everyone else has been placed by hand
+   to match where they are sitting, and adding a player is no reason to
+   throw that away. */
+function placeNew(p) {
+  const rect = safeRect();
+  const others = players.filter(x => x !== p);
+  const best = EDGES
+    .map(e => ({ e: e, room: edgeCapacity(e, rect) - others.filter(x => x.edge === e).length }))
+    .sort((a, b) => b.room - a.room)[0];
+  p.edge = best && best.room > 0 ? best.e : "bottom";
+  const mates = others.filter(x => x.edge === p.edge);
+  p.fraction = mates.length
+    ? Math.min(1, Math.max.apply(null, mates.map(x => x.fraction)) + 0.15)
+    : 0.5;
+}
+
+function removePlayer(id) {
+  players = players.filter(p => p.id !== id);
+  log = log.filter(e => e.playerId !== id);
+  if (openId === id) closePanel();
+}
+
+/* Allocate players to edges in proportion to usable span - the long edges
+   carry roughly 2.5x the short ones, so round-robin would crowd them. */
+function autoArrange() {
+  const rect = safeRect();
+  const spans = EDGES.map(e => ({ e: e, span: edgeSpan(e, rect).length }));
+  const total = spans.reduce((s, x) => s + x.span, 0) || 1;
+  const n = players.length;
+  const counts = spans.map(x => ({ e: x.e, n: Math.floor(n * x.span / total), rem: (n * x.span / total) % 1 }));
+  const left = n - counts.reduce((s, c) => s + c.n, 0);
+  counts.slice().sort((a, b) => b.rem - a.rem).forEach((c, i) => { if (i < left) c.n++; });
+  let i = 0;
+  for (const c of counts) {
+    for (let k = 0; k < c.n && i < n; k++, i++) {
+      players[i].edge = c.e;
+      players[i].fraction = (k + 0.5) / c.n;
+    }
+  }
+}
+
+/* ============================================================
+   Geometry - carried over from M1 intact
+   ============================================================ */
 
 function readSafeInsets() {
   const cs = getComputedStyle(probe);
-  safe = {
-    top:    parseFloat(cs.paddingTop)    || 0,
-    right:  parseFloat(cs.paddingRight)  || 0,
-    bottom: parseFloat(cs.paddingBottom) || 0,
-    left:   parseFloat(cs.paddingLeft)   || 0
-  };
+  safe = { top: parseFloat(cs.paddingTop) || 0, right: parseFloat(cs.paddingRight) || 0,
+           bottom: parseFloat(cs.paddingBottom) || 0, left: parseFloat(cs.paddingLeft) || 0 };
 }
-
-/* The rect tabs anchor to: the viewport inset by the safe area, so a
-   tab is never under the home indicator or the notch (#5). */
-function safeRect() {
-  const v = viewport();
-  return {
-    l: bleedFor("left"),
-    t: bleedFor("top"),
-    r: v.w - bleedFor("right"),
-    b: v.h - bleedFor("bottom")
-  };
+function viewport() {
+  const r = vpEl.getBoundingClientRect();
+  return { w: r.width || window.innerWidth, h: r.height || window.innerHeight };
 }
-
-function edgeLength(edge, rect) {
-  return (edge === "top" || edge === "bottom") ? rect.r - rect.l : rect.b - rect.t;
-}
-
-/* Usable span excludes one tab-depth at each end, so nothing lands in
-   a corner where two edges would collide (#4). */
-function edgeSpan(edge, rect) {
-  const len = edgeLength(edge, rect);
-  const start = (edge === "top" || edge === "bottom") ? rect.l : rect.t;
-  return { start: start + DEPTH, length: Math.max(0, len - DEPTH * 2) };
-}
-
-function edgeCapacity(edge, rect) {
-  const span = edgeSpan(edge, rect).length;
-  return Math.max(0, Math.floor((span + GAP) / (MIN_LEN + GAP)));
-}
-
-/* ------------------------------------------------------------
-   The four transforms.
-
-   A tab is authored as one `length x DEPTH` box with upright text.
-   Placement is a single translate+rotate, so there is no per-edge
-   markup and no swapping width for height on the vertical edges (#2).
-
-   In local coordinates y=0 is ALWAYS the inward edge and y=DEPTH the
-   outer edge, on all four sides. That invariant is what lets the
-   last-round bar and the leader star sit on fixed local edges.
-   ------------------------------------------------------------ */
-/* Total depth for an edge: DEPTH inward of the safe boundary, plus the
-   safe-area inset as bleed. Tabs anchor to the PHYSICAL screen edge so
-   they look attached rather than hovering above a letterboxed strip —
-   the background runs to the bezel while content stays inside the safe
-   area, clear of the home indicator. */
 function isStandalone() {
-  return (window.matchMedia && matchMedia("(display-mode: standalone)").matches) ||
-         navigator.standalone === true;
+  return (window.matchMedia && matchMedia("(display-mode: standalone)").matches) || navigator.standalone === true;
 }
-
-/* Effective bleed for an edge: what the browser reports, or our own
-   home-indicator clearance where it reports nothing but the bar is there. */
 function bleedFor(edge) {
   const reported = safe[edge] || 0;
   if (reported === 0 && edge === "bottom" && isStandalone()) {
@@ -360,32 +441,42 @@ function bleedFor(edge) {
   }
   return reported;
 }
-
 function edgeDepth(edge) { return DEPTH + bleedFor(edge); }
 
-function tabTransform(edge, along, len) {
+function safeRect() {
   const v = viewport();
-  const W = v.w, H = v.h;
-  const D = edgeDepth(edge);
+  return { l: bleedFor("left"), t: bleedFor("top"), r: v.w - bleedFor("right"), b: v.h - bleedFor("bottom") };
+}
+function edgeLength(edge, rect) {
+  return (edge === "top" || edge === "bottom") ? rect.r - rect.l : rect.b - rect.t;
+}
+function edgeSpan(edge, rect) {
+  const len = edgeLength(edge, rect);
+  const start = (edge === "top" || edge === "bottom") ? rect.l : rect.t;
+  return { start: start + DEPTH, length: Math.max(0, len - DEPTH * 2) };
+}
+function edgeCapacity(edge, rect) {
+  return Math.max(0, Math.floor((edgeSpan(edge, rect).length + GAP) / (MIN_LEN + GAP)));
+}
+
+/* One `length x depth` box placed by a single translate+rotate. In local
+   coordinates y=0 is ALWAYS the inward edge and y=depth the outer one. */
+function tabTransform(edge, along, len, depth) {
+  const v = viewport(), W = v.w, H = v.h, D = depth;
   switch (edge) {
-    case "bottom": return `translate(${along}px, ${H - D}px) rotate(0deg)`;
-    case "top":    return `translate(${along + len}px, ${D}px) rotate(180deg)`;
-    case "left":   return `translate(${D}px, ${along}px) rotate(90deg)`;
-    case "right":  return `translate(${W - D}px, ${along + len}px) rotate(-90deg)`;
+    case "bottom": return "translate(" + along + "px, " + (H - D) + "px) rotate(0deg)";
+    case "top":    return "translate(" + (along + len) + "px, " + D + "px) rotate(180deg)";
+    case "left":   return "translate(" + D + "px, " + along + "px) rotate(90deg)";
+    case "right":  return "translate(" + (W - D) + "px, " + (along + len) + "px) rotate(-90deg)";
   }
 }
 
 /* ============================================================
-   Layout — pack each edge, then place
+   Layout
    ============================================================ */
 
-/* `commit` writes resolved positions back to each tab's fraction.
-   During a drag it stays false: neighbours are shoved only visually, so
-   moving away lets them spring home. Committing every frame instead
-   makes each shove the tab's new home, and it can be pushed for ever. */
-function layout(commit = false) {
+function layout(commitPos) {
   const rect = safeRect();
-
   spillOverfullEdges(rect);
 
   for (const edge of EDGES) {
@@ -394,25 +485,15 @@ function layout(commit = false) {
     const n = group.length;
     if (!n) continue;
 
-    // Length shrinks with crowding, down to the floor, and stops short
-    // of filling the edge so there is always room to push into.
     const ideal = (span.length * FILL - GAP * (n - 1)) / n;
     const len = Math.max(MIN_LEN, Math.min(MAX_LEN, ideal));
-
-    // Desired centres from each tab's stored fraction.
     const half = len / 2;
-    const lo = span.start + half;
-    const hi = span.start + span.length - half;
+    const lo = span.start + half, hi = span.start + span.length - half;
     const pitch = len + GAP;
     const centres = group.map(p => clamp(span.start + p.fraction * span.length, lo, hi));
 
-    // Relaxation. The dragged tab is PINNED and neighbours are pushed
-    // away from it in both directions, so it holds the spot the finger
-    // chose. Relaxing from index 0 instead makes the shove one-sided:
-    // approaching a neighbour from its right displaces the dragged tab
-    // rather than the neighbour.
+    /* The dragged tab is pinned; neighbours relax outward from it. */
     const pin = group.findIndex(p => p.lifted);
-
     if (pin >= 0) {
       for (let i = pin + 1; i < n; i++) centres[i] = Math.max(centres[i], centres[i - 1] + pitch);
       for (let i = pin - 1; i >= 0; i--) centres[i] = Math.min(centres[i], centres[i + 1] - pitch);
@@ -420,11 +501,7 @@ function layout(commit = false) {
       for (let i = 1; i < n; i++) centres[i] = Math.max(centres[i], centres[i - 1] + pitch);
       for (let i = n - 2; i >= 0; i--) centres[i] = Math.min(centres[i], centres[i + 1] - pitch);
     }
-
-    // Only the ends may override the pin, and only once the edge has
-    // genuinely run out of room. Running these unconditionally is what
-    // made a leftward drag snap the moving tab instead of shoving the
-    // resident one.
+    /* Only the ends may override the pin, and only once the edge is full. */
     if (centres[0] < lo) {
       centres[0] = lo;
       for (let i = 1; i < n; i++) centres[i] = Math.max(centres[i], centres[i - 1] + pitch);
@@ -438,29 +515,21 @@ function layout(commit = false) {
       const c = clamp(centres[i], lo, hi);
       p._len = len;
       p._along = c - half;
-      p._transform = tabTransform(edge, p._along, len);
-      // Displacement becomes real only on drop. Until then `fraction`
-      // is left alone, so every frame re-derives the shove from the
-      // original positions rather than from the last shoved ones.
-      if (commit && span.length > 0) {
-        p.fraction = clamp((c - span.start) / span.length, 0, 1);
-      }
+      /* Displacement becomes real only on drop; committing every frame
+         would let a tab be shoved for ever and never spring back. */
+      if (commitPos && span.length > 0) p.fraction = clamp((c - span.start) / span.length, 0, 1);
     });
   }
-
   render(rect);
 }
 
-/* If an edge holds more tabs than it can fit at the floor, move the
-   excess to the emptiest edge rather than overlapping them. */
 function spillOverfullEdges(rect) {
   for (const edge of EDGES) {
     const cap = edgeCapacity(edge, rect);
-    let group = players.filter(p => p.edge === edge).sort((a, b) => a.fraction - b.fraction);
+    const group = players.filter(p => p.edge === edge).sort((a, b) => a.fraction - b.fraction);
     while (group.length > cap) {
-      const target = EDGES
-        .map(e => ({ e, room: edgeCapacity(e, rect) - players.filter(p => p.edge === e).length }))
-        .sort((a, b) => b.room - a.room)[0];
+      const target = EDGES.map(e => ({ e: e, room: edgeCapacity(e, rect) - players.filter(p => p.edge === e).length }))
+                          .sort((a, b) => b.room - a.room)[0];
       if (!target || target.room <= 0) break;
       const moved = group.pop();
       moved.edge = target.e;
@@ -469,52 +538,66 @@ function spillOverfullEdges(rect) {
   }
 }
 
-const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+/* Panel size: big enough for the pad, clamped to its edge and to the
+   screen so it can never run off either. */
+function panelSize(edge, rect) {
+  const v = viewport();
+  const span = edgeSpan(edge, rect).length;
+  const len = Math.max(MIN_LEN, Math.min(span, 330));
+  const across = (edge === "top" || edge === "bottom") ? v.h : v.w;
+  const depth = Math.max(DEPTH, Math.min(300, across - DEPTH - 40)) + bleedFor(edge);
+  return { len: len, depth: depth };
+}
 
-/* ============================================================
-   Render
-   ============================================================ */
-
-/* Thresholds scale with the type, which grew along with DEPTH. */
 function tierFor(len) {
-  if (len >= 150) return "";              // emoji + full name / round + total
-  if (len >= 108) return "t-first";       // emoji + first name / round + total
-  if (len >= 76)  return "t-first t-norounds";
-  return "t-emoji t-norounds";            // emoji / total
+  if (len >= 150) return "";
+  if (len >= 76)  return "t-first";
+  return "t-emoji";
 }
 
 function render(rect) {
-  // Leader and last-round marks are placeholders here; the real rules
-  // live in M3 (#18). Included so tab shape can be judged in context.
-  const best = Math.max(...players.map(p => p.total));
-  const hot  = Math.max(...players.map(p => p.round));
+  const scores = players.map(p => totals[p.id] || 0);
+  const best = scores.length ? Math.max.apply(null, scores) : 0;
+  const scored = log.some(e => e.type === "delta");
+  const allSame = players.length > 1 && scores.every(s => s === best);
 
   for (const p of players) {
     const el = p.el;
+    const open = p.id === openId;
     const bleed = bleedFor(p.edge);
-    el.style.width = p._len + "px";
-    el.style.height = (DEPTH + bleed) + "px";
-    el.style.paddingBottom = (PAD_OUT + bleed) + "px";
+    const size = open ? panelSize(p.edge, rect) : { len: p._len, depth: edgeDepth(p.edge) };
+
+    let along = p._along;
+    if (open) {
+      const span = edgeSpan(p.edge, rect);
+      const mid = p._along + p._len / 2;
+      along = clamp(mid - size.len / 2, span.start, span.start + span.length - size.len);
+    }
+
+    el.style.width = size.len + "px";
+    el.style.height = size.depth + "px";
+    el.style.paddingBottom = open ? "" : (PAD_OUT + bleed) + "px";
     el.style.setProperty("--bleed", bleed + "px");
-    el.style.transform = p._transform;
-    // Transform is only allowed to animate when a tab stays on the same
-    // edge. CSS interpolates the whole matrix, so transitioning across a
-    // rotation change makes the tab spin and skew through intermediate
-    // angles — visible on first paint, on spill, and on rotate. Sliding
-    // along one edge is the only case where easing actually helps.
+    el.style.transform = tabTransform(p.edge, along, size.len, size.depth);
+
+    /* Transform only animates when the tab stays on the same edge: CSS
+       interpolates the whole matrix, so easing across a rotation change
+       tumbles the tab through intermediate angles. */
     const sameEdge = p._renderedEdge === p.edge;
-    el.className = `tab ${tierFor(p._len)}` +
+    el.className = "tab " + tierFor(size.len) +
                    (p.lifted ? " lifted" : (sameEdge ? " settling" : "")) +
-                   (p.total === best ? " leading" : "") +
-                   (p.round === hot  ? " won-round" : "");
+                   (open ? " open" : "") +
+                   (scored && !allSame && (totals[p.id] || 0) === best ? " leading" : "");
     p._renderedEdge = p.edge;
-    el.querySelector(".who").textContent = p._len >= 120 ? p.name : p.first;
+
+    el.querySelector(".who").textContent = size.len >= 150 ? p.name : p.name.split(" ")[0];
+    el.querySelector(".tot").textContent = totals[p.id] || 0;
+    if (open) paintPanel(p);
   }
 
-  // Centre is the viewport minus tab depth on every occupied edge.
   const occupied = e => players.some(p => p.edge === e);
-  centre.style.left   = (rect.l + (occupied("left")   ? DEPTH : 0) + 10) + "px";
-  centre.style.top    = (rect.t + (occupied("top")    ? DEPTH : 0) + 10) + "px";
+  centre.style.left   = (rect.l + (occupied("left") ? DEPTH : 0) + 10) + "px";
+  centre.style.top    = (rect.t + (occupied("top")  ? DEPTH : 0) + 10) + "px";
   centre.style.width  = (rect.r - rect.l - (occupied("left") ? DEPTH : 0) - (occupied("right")  ? DEPTH : 0) - 20) + "px";
   centre.style.height = (rect.b - rect.t - (occupied("top")  ? DEPTH : 0) - (occupied("bottom") ? DEPTH : 0) - 20) + "px";
 }
@@ -524,82 +607,146 @@ function buildTab(p) {
   el.className = "tab";
   el.style.background = p.color;
   el.innerHTML =
-    `<span class="bar"></span>` +
-    `<span class="name"><span class="emoji">${p.emoji}</span><span class="who"></span></span>` +
-    `<span class="nums"><span class="rnd">${p.round}</span><span class="tot">${p.total}</span></span>` +
-    `<span class="star">★</span>`;
+    '<div class="compact">' +
+      '<span class="name"><span class="emoji"></span><span class="who"></span></span>' +
+      '<span class="nums"><span class="tot"></span></span>' +
+      '<span class="star">★</span>' +
+    '</div>' +
+    '<div class="panel"></div>';
+  el.querySelector(".emoji").textContent = p.emoji;
   el.addEventListener("pointerdown", e => onPointerDown(e, p));
   stage.appendChild(el);
   return el;
 }
 
-/* ============================================================
-   Setup — auto-arrange proportionally to edge span
-   ============================================================ */
-
-function setCount(n) {
+function rebuildTabs() {
   stage.innerHTML = "";
-  const rect = safeRect();
-
-  // Allocate players to edges in proportion to usable span, not
-  // round-robin: the long edges carry roughly 2.3x the short ones.
-  const spans = EDGES.map(e => ({ e, span: edgeSpan(e, rect).length }));
-  const total = spans.reduce((s, x) => s + x.span, 0) || 1;
-  let alloc = spans.map(x => ({ e: x.e, exact: n * x.span / total }));
-  let counts = alloc.map(a => ({ e: a.e, n: Math.floor(a.exact), rem: a.exact % 1 }));
-  let left = n - counts.reduce((s, c) => s + c.n, 0);
-  counts.sort((a, b) => b.rem - a.rem);
-  for (let i = 0; i < left; i++) counts[i % counts.length].n++;
-
-  players = [];
-  let i = 0;
-  for (const c of counts) {
-    for (let k = 0; k < c.n; k++, i++) {
-      const p = {
-        id: i,
-        name: NAMES[i % NAMES.length],
-        first: NAMES[i % NAMES.length].split(" ")[0],
-        emoji: ANIMALS[i % ANIMALS.length],
-        color: COLORS[i % COLORS.length],
-        total: 12 + ((i * 17) % 47),
-        round: (i * 5) % 13,
-        edge: c.e,
-        fraction: (k + 0.5) / c.n,
-        lifted: false
-      };
-      p.el = buildTab(p);
-      players.push(p);
-    }
-  }
-  layout(true);
-  report();
+  for (const p of players) p.el = buildTab(p);
 }
 
 /* ============================================================
-   Drag — hold to lift, then project onto the nearest edge (#3)
+   The panel - the tab, grown
+   ============================================================ */
+
+function openPanel(p) { openId = p.id; entry = null; scrim.classList.add("on"); layout(false); }
+function closePanel() { openId = null; entry = null; scrim.classList.remove("on"); layout(false); }
+
+function paintPanel(p) {
+  const box = p.el.querySelector(".panel");
+  const mine = log.filter(e => e.type === "delta" && e.playerId === p.id).slice(-6).reverse();
+  const hist = mine.length
+    ? mine.map(e => (e.value > 0 ? "+" : "") + e.value).join("   ")
+    : "No scores yet";
+
+  if (entry === null) {
+    box.innerHTML =
+      '<div class="ptop">' +
+        '<span style="font-size:22px">' + p.emoji + '</span>' +
+        '<span class="pname">' + esc(p.name) + '</span>' +
+        '<span class="ptot">' + (totals[p.id] || 0) + '</span>' +
+        '<button class="x" data-act="close" aria-label="Close">✕</button>' +
+      '</div>' +
+      '<div class="pad">' +
+        '<button class="minus" data-d="-10">−10</button>' +
+        '<button class="minus" data-d="-5">−5</button>' +
+        '<button class="minus" data-d="-1">−1</button>' +
+        '<button data-d="1">+1</button>' +
+        '<button data-d="5">+5</button>' +
+        '<button data-d="10">+10</button>' +
+      '</div>' +
+      '<div class="prow">' +
+        '<button class="btn2" data-act="keypad">Custom</button>' +
+        '<button class="btn2" data-act="undo"' + (mine.length ? "" : " disabled") + '>Undo</button>' +
+      '</div>' +
+      '<div class="hist">' + hist + '</div>';
+  } else {
+    box.innerHTML =
+      '<div class="ptop">' +
+        '<span class="pname">' + esc(p.name) + '</span>' +
+        '<button class="x" data-act="pad" aria-label="Back">✕</button>' +
+      '</div>' +
+      '<div class="entry">' + (entry === "" || entry === "-" ? (entry || "0") : entry) + '</div>' +
+      '<div class="keys">' +
+        [1,2,3,4,5,6,7,8,9].map(n => '<button data-k="' + n + '">' + n + '</button>').join("") +
+        '<button data-k="0">0</button>' +
+        '<button data-k="del">⌫</button>' +
+        '<button data-k="sign">±</button>' +
+        '<button class="wide ok" data-k="ok">Apply</button>' +
+      '</div>';
+  }
+}
+
+function score(p, delta) {
+  if (!delta) return;
+  log.push({ id: uid(), ts: Date.now(), type: "delta", playerId: p.id, value: delta });
+  commit();
+}
+
+function undoLast(playerId) {
+  for (let i = log.length - 1; i >= 0; i--) {
+    if (log[i].type === "delta" && (!playerId || log[i].playerId === playerId)) {
+      log.splice(i, 1);
+      commit();
+      return true;
+    }
+  }
+  return false;
+}
+
+stage.addEventListener("click", e => {
+  if (!openId) return;
+  const p = players.find(x => x.id === openId);
+  if (!p || !p.el.contains(e.target)) return;
+
+  const act = e.target.closest("[data-act]");
+  const d   = e.target.closest("[data-d]");
+  const k   = e.target.closest("[data-k]");
+
+  if (d) { score(p, parseInt(d.dataset.d, 10)); return; }
+  if (act) {
+    const a = act.dataset.act;
+    if (a === "close")  closePanel();
+    if (a === "undo")   undoLast(p.id);
+    if (a === "keypad") { entry = ""; layout(false); }
+    if (a === "pad")    { entry = null; layout(false); }
+    return;
+  }
+  if (k) {
+    const key = k.dataset.k;
+    if (key === "ok") {
+      const v = parseInt(entry, 10);
+      entry = null;
+      if (!isNaN(v) && v !== 0) score(p, v); else layout(false);
+    } else if (key === "del") {
+      entry = entry.replace(/.$/, "");
+      layout(false);
+    } else if (key === "sign") {
+      entry = entry.charAt(0) === "-" ? entry.slice(1) : "-" + entry;
+      layout(false);
+    } else {
+      if (entry.replace("-", "").length < 4) entry += key;
+      layout(false);
+    }
+  }
+});
+
+scrim.addEventListener("click", () => { closePanel(); closeSheet(); });
+
+/* ============================================================
+   Drag
    ============================================================ */
 
 let drag = null;
 
 function onPointerDown(e, p) {
+  if (openId) return;                       // panel open: no dragging
   if (e.button !== undefined && e.button !== 0) return;
   e.preventDefault();
   p.el.setPointerCapture(e.pointerId);
+  drag = { p: p, id: e.pointerId, x0: e.clientX, y0: e.clientY, active: false, moved: false, timer: null };
 
-  drag = {
-    p, id: e.pointerId,
-    x0: e.clientX, y0: e.clientY,
-    active: false, moved: false,
-    timer: null
-  };
-
-  if (arrangeMode) {
-    lift(p);
-  } else {
-    // Locked: a deliberate hold is required, so nobody repositions a
-    // tab by accident while trying to score.
-    drag.timer = setTimeout(() => { if (drag) lift(p); }, HOLD_MS);
-  }
+  if (arrangeMode) lift(p);
+  else drag.timer = setTimeout(() => { if (drag) lift(p); }, HOLD_MS);
 
   window.addEventListener("pointermove", onPointerMove);
   window.addEventListener("pointerup", onPointerUp);
@@ -623,106 +770,164 @@ function onPointerMove(e) {
     if (!drag.active && drag.timer) { clearTimeout(drag.timer); drag.timer = null; }
   }
   if (!drag.active) return;
-
-  const rect = safeRect();
-  const { edge, fraction } = projectToEdge(e.clientX, e.clientY, rect);
-  drag.p.edge = edge;
-  drag.p.fraction = fraction;
-  layout();
-  report(drag.p);
+  const hit = projectToEdge(e.clientX, e.clientY, safeRect());
+  drag.p.edge = hit.edge;
+  drag.p.fraction = hit.fraction;
+  layout(false);
 }
 
 function onPointerUp(e) {
   if (!drag || (e && e.pointerId !== drag.id)) return;
   if (drag.timer) clearTimeout(drag.timer);
-  const p = drag.p;
-  if (drag.active) {
-    // Commit while the tab is still pinned, so what gets recorded is
-    // exactly the arrangement on screen. Clearing `lifted` first would
-    // re-run the unpinned relaxation and could shift things at the last
-    // moment.
-    layout(true);
+  const p = drag.p, wasDrag = drag.active, moved = drag.moved;
+  drag = null;
+  if (wasDrag) {
+    layout(true);                 // commit while still pinned
     p.lifted = false;
     p.el.classList.remove("lifted");
-    layout();
-  } else if (!drag.moved) {
-    // A tap. In the real app this opens the panel (M3, #14).
-    p.el.animate(
-      [{ filter: "brightness(1)" }, { filter: "brightness(1.5)" }, { filter: "brightness(1)" }],
-      { duration: 260 }
-    );
+    layout(true);
+    save();
+  } else if (!moved) {
+    openPanel(p);
   }
-  drag = null;
-  report();
   window.removeEventListener("pointermove", onPointerMove);
   window.removeEventListener("pointerup", onPointerUp);
   window.removeEventListener("pointercancel", onPointerUp);
 }
 
-/* Nearest-edge projection: perpendicular distance to each of the four
-   edges, take the minimum, then clamp along it to a fraction. */
 function projectToEdge(x, y, rect) {
-  const d = {
-    top:    y - rect.t,
-    bottom: rect.b - y,
-    left:   x - rect.l,
-    right:  rect.r - x
-  };
+  const d = { top: y - rect.t, bottom: rect.b - y, left: x - rect.l, right: rect.r - x };
   const edge = EDGES.reduce((best, e) => (d[e] < d[best] ? e : best), "top");
   const span = edgeSpan(edge, rect);
   const along = (edge === "top" || edge === "bottom") ? x : y;
   const f = span.length > 0 ? (along - span.start) / span.length : 0.5;
-  return { edge, fraction: clamp(f, 0, 1) };
+  return { edge: edge, fraction: clamp(f, 0, 1) };
 }
 
 /* ============================================================
-   Readout
+   Hub
    ============================================================ */
 
-function report(p) {
-  const rect = safeRect();
-  const counts = EDGES.map(e => `${e[0].toUpperCase()}${players.filter(x => x.edge === e).length}`).join(" ");
-  const lens = players.length ? Math.round(Math.min(...players.map(x => x._len || 0))) : 0;
-  const insets = `${safe.top|0}/${safe.right|0}/${safe.bottom|0}/${safe.left|0}`;
-  const standalone = (window.matchMedia && matchMedia("(display-mode: standalone)").matches) ||
-                     navigator.standalone === true;
-  readout.textContent =
-    `${counts}   min ${lens}px\n` +
-    `inset ${insets} -> ${EDGES.map(bleedFor).map(function(v){return v|0}).join("/")}  ${standalone ? "standalone" : "browser"}\n` +
-    `vp ${Math.round(viewport().w)}×${Math.round(viewport().h)}  inner ${window.innerWidth}×${window.innerHeight}\n` +
-    `screen ${screen.width}×${screen.height}\n` +
-    (p ? `${p.first} → ${p.edge} ${p.fraction.toFixed(2)}` : "");
+function paintHub() {
+  const lead = document.getElementById("lead");
+  const scored = log.some(e => e.type === "delta");
+  if (!players.length) {
+    lead.innerHTML = "No players yet.<br>Add a few to start.";
+  } else if (!scored) {
+    lead.innerHTML = players.length + " players &middot; no score yet";
+  } else {
+    const best = Math.max.apply(null, players.map(p => totals[p.id] || 0));
+    const tied = players.filter(p => (totals[p.id] || 0) === best);
+    lead.innerHTML = tied.length === players.length
+      ? "All tied on <b>" + best + "</b>"
+      : (tied.length > 1
+          ? tied.length + " tied on <b>" + best + "</b>"
+          : "<b>" + esc(tied[0].name.split(" ")[0]) + "</b> leads on <b>" + best + "</b>");
+  }
+  document.getElementById("undo").disabled = !log.some(e => e.type === "delta");
 }
 
-/* ============================================================
-   Controls
-   ============================================================ */
-
-const countEl = document.getElementById("count");
-const countVal = document.getElementById("countVal");
-countEl.addEventListener("input", () => {
-  countVal.textContent = countEl.value;
-  setCount(+countEl.value);
-});
-
+document.getElementById("undo").addEventListener("click", () => undoLast(null));
 document.getElementById("arrange").addEventListener("click", e => {
   const b = e.target.closest("button"); if (!b) return;
   arrangeMode = b.dataset.arrange === "on";
-  [...e.currentTarget.children].forEach(c => c.setAttribute("aria-pressed", String(c === b)));
-  document.getElementById("hint").textContent = arrangeMode
-    ? "Arrange: drag a tab straight to any edge."
-    : "Locked: press and hold a tab to pick it up.";
+  Array.prototype.forEach.call(e.currentTarget.children,
+    c => c.setAttribute("aria-pressed", String(c === b)));
 });
+
+/* ============================================================
+   Players sheet - centre, unrotated, native inputs are fine here
+   ============================================================ */
+
+let editing = null;
+
+function openSheet() { sheet.classList.add("on"); scrim.classList.add("on"); paintSheet(); }
+function closeSheet() { sheet.classList.remove("on"); scrim.classList.remove("on"); editing = null; }
+
+function paintSheet() {
+  const rows = players.map(p =>
+    '<div class="prow2" data-id="' + p.id + '">' +
+      '<button class="chip" data-act="edit" style="background:' + p.color + '">' + p.emoji + '</button>' +
+      '<input value="' + esc(p.name) + '" data-act="name" maxlength="24" enterkeyhint="done">' +
+      '<button class="kill" data-act="remove" aria-label="Remove">✕</button>' +
+    '</div>' +
+    (editing === p.id ? pickers(p) : "")
+  ).join("");
+
+  sheet.innerHTML =
+    "<h2>Players</h2>" +
+    '<div class="plist">' + rows + "</div>" +
+    '<div class="btns">' +
+      '<button class="btn primary" data-act="add"' + (players.length >= MAX_PLAYERS ? " disabled" : "") + ">Add player</button>" +
+      '<button class="btn" data-act="done">Done</button>' +
+    "</div>" +
+    (players.length >= MAX_PLAYERS ? '<div class="lead">Sixteen is the cap.</div>' : "");
+}
+
+function pickers(p) {
+  const usedE = new Set(players.filter(x => x.id !== p.id).map(x => x.emoji));
+  const usedC = new Set(players.filter(x => x.id !== p.id).map(x => x.color));
+  return '<div class="swatches">' +
+      COLORS.map(c => '<button data-act="color" data-v="' + c + '" style="background:' + c + '"' +
+        (usedC.has(c) ? " disabled" : "") + (p.color === c ? ' aria-pressed="true"' : "") + "></button>").join("") +
+    "</div>" +
+    '<div class="emojis">' +
+      ANIMALS.map(a => '<button data-act="emoji" data-v="' + a + '"' + (usedE.has(a) ? " disabled" : "") + ">" + a + "</button>").join("") +
+    "</div>";
+}
+
+sheet.addEventListener("click", e => {
+  const b = e.target.closest("[data-act]");
+  if (!b || b.tagName === "INPUT") return;
+  const act = b.dataset.act;
+  const row = b.closest("[data-id]");
+  const rowId = row ? row.dataset.id : null;
+
+  if (act === "add")    { addPlayer(); rebuildTabs(); commit(); paintSheet(); return; }
+  if (act === "done")   { closeSheet(); return; }
+  if (act === "remove") { removePlayer(rowId); rebuildTabs(); commit(); paintSheet(); return; }
+  if (act === "edit")   { editing = (editing === rowId ? null : rowId); paintSheet(); return; }
+
+  if (act === "color" || act === "emoji") {
+    const p = players.find(x => x.id === editing);
+    if (!p) return;
+    if (act === "color") { p.color = b.dataset.v; p.el.style.background = p.color; }
+    else { p.emoji = b.dataset.v; p.el.querySelector(".emoji").textContent = p.emoji; }
+    commit();
+    paintSheet();
+  }
+});
+
+sheet.addEventListener("input", e => {
+  const inp = e.target.closest('input[data-act="name"]');
+  if (!inp) return;
+  const p = players.find(x => x.id === inp.closest("[data-id]").dataset.id);
+  if (!p) return;
+  p.name = inp.value;
+  commit();              // deliberately no paintSheet: it would steal the caret
+});
+
+document.getElementById("manage").addEventListener("click", openSheet);
+
+/* ============================================================
+   Boot
+   ============================================================ */
 
 let resizeTimer;
 window.addEventListener("resize", () => {
   clearTimeout(resizeTimer);
-  resizeTimer = setTimeout(() => { readSafeInsets(); layout(true); report(); }, 80);
+  resizeTimer = setTimeout(() => { readSafeInsets(); layout(true); }, 80);
 });
-window.addEventListener("orientationchange", () => setTimeout(() => { readSafeInsets(); layout(true); report(); }, 250));
+window.addEventListener("orientationchange", () =>
+  setTimeout(() => { readSafeInsets(); layout(true); }, 250));
 
 readSafeInsets();
-setCount(+countEl.value);
+if (!load()) {
+  ["Ann", "Rai", "Bo", "Kit"].forEach(n => addPlayer(n));
+  autoArrange();          // fresh game: spread evenly
+}
+rebuildTabs();
+commit();
 </script>
 </body>
 </html>
