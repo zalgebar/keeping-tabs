@@ -57,8 +57,12 @@
 
   /* ---------------- centre ---------------- */
 
+  /* Explicit order at the root, or DOM order decides it: #centre would
+     paint over an expanding panel, and #stage would paint over nothing.
+     Inside #stage: tabs 0, lifted 10, scrim 20, open panel 30. */
   #centre {
-    position: fixed; display: flex; flex-direction: column;
+    position: fixed; z-index: 1;
+    display: flex; flex-direction: column;
     align-items: center; justify-content: center; gap: 12px;
     padding: 12px; text-align: center;
   }
@@ -95,7 +99,7 @@
 
   /* ---------------- tabs ---------------- */
 
-  #stage { position: fixed; inset: 0; pointer-events: none; }
+  #stage { position: fixed; inset: 0; pointer-events: none; z-index: 2; }
 
   .tab {
     position: absolute; top: 0; left: 0; transform-origin: 0 0;
@@ -184,6 +188,10 @@
   .keys button.ok { background: rgba(255,255,255,.30); font-weight: 700; }
   .entry { font-size: 26px; font-weight: 700; text-align: center; font-variant-numeric: tabular-nums; min-height: 1.1em; }
 
+  /* Inside #stage, not beside it. `position: fixed` on #stage creates a
+     stacking context, so an open tab's z-index only competes with its
+     siblings — a scrim outside #stage paints over every tab no matter
+     what z-index the tab carries. */
   #scrim { position: fixed; inset: 0; background: #000; opacity: 0; pointer-events: none;
            transition: opacity .2s ease; z-index: 20; }
   #scrim.on { opacity: .55; pointer-events: auto; }
@@ -231,8 +239,9 @@
 
 <div id="probe"></div>
 <div id="vp"></div>
-<div id="scrim"></div>
-<div id="stage"></div>
+<div id="stage">
+  <div id="scrim"></div>
+</div>
 
 <div id="centre">
   <div class="hub">
@@ -626,7 +635,8 @@ function buildTab(p) {
 }
 
 function rebuildTabs() {
-  stage.innerHTML = "";
+  /* Remove only the tabs: innerHTML = "" would take the scrim with them. */
+  Array.prototype.forEach.call(stage.querySelectorAll(".tab"), el => el.remove());
   for (const p of players) p.el = buildTab(p);
 }
 
