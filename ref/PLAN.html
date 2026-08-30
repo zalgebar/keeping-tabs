@@ -706,7 +706,12 @@
 
     <h4>Tabs must not fill their edge</h4>
     <p>Sizing tabs to consume the whole usable span leaves <strong>exactly zero slack</strong>, and slack is what the push mechanic runs on. With none, a neighbour can never slide out of the way — it can only snap when the sort order flips, which reads as the shove working in one direction and not the other. Tabs therefore take about <strong>92%</strong> of the span and leave the rest free.</p>
-    <p>The dragged tab is also <em>pinned</em>, with everything relaxing outward from it in both directions. Relaxing from one end instead makes the dragged tab get displaced by its own neighbour rather than displacing it. Both were found by building M1, not by reasoning about it.</p>
+    <p>The dragged tab is also <em>pinned</em>, with everything relaxing outward from it in both directions, and the passes that resolve the ends of an edge run only when an end is actually violated. Relaxing from one end unconditionally instead lets the dragged tab be displaced by its own neighbour rather than displacing it.</p>
+
+    <h4>Displacement is provisional until the drop</h4>
+    <p>A shoved tab must not treat each frame's new spot as its home. Record continuously and the shove <strong>ratchets</strong>: a resident can be pushed along an edge without limit and can never return. Record never, and the shove is merely cosmetic — the tab springs back the moment anything re-lays out, and a rearrangement the user just made is silently lost.</p>
+    <p>The rule sits between the two: <strong>show the displacement during the drag, discard it if the mover moves away, record it on drop.</strong> Every frame re-derives the shove from each resident's original position rather than from its last shoved one, and the commit happens while the dragged tab is still pinned, so what gets stored is exactly the arrangement on screen.</p>
+    <p>Slack, the pin, and provisional commit were all found by <em>using</em> M1, not by reasoning about it — three separate bugs in the same mechanic, none of which were visible on paper. That is what the prototype was for.</p>
 
     <div class="note">
       <span class="label">Measured, and one caveat</span>
