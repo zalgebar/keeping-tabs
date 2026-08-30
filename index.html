@@ -4,13 +4,17 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
 <meta name="color-scheme" content="dark light">
-<!-- Without these iOS runs the standalone app inset below the status bar and
-     env(safe-area-inset-*) reports 0, so no bleed is possible and the home
-     indicator lands on top of tab content. black-translucent is what makes
-     the webview full-screen and the insets real. -->
+<!-- apple-mobile-web-app-capable + viewport-fit=cover is what makes iOS
+     report real safe-area insets in standalone; without it env() reads 0.
+     The status bar is deliberately NOT black-translucent: translucent moves
+     the viewport origin up under the status bar without growing its height,
+     so the page ends one top-inset short of the screen and leaves an
+     unpaintable black band along the bottom. Opaque keeps the viewport
+     below the status bar and running to the physical bottom, which is where
+     the bleed is actually wanted. -->
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
 <title>Keeping Tabs — M1 perimeter prototype</title>
 <style>
   /* ============================================================
