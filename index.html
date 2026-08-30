@@ -13,7 +13,7 @@
      ============================================================ */
 
   :root {
-    --depth: 56px;
+    --depth: 72px;
     --ground: #14181A;
     --ink: #E8EDEA;
     --ink-dim: #8C9A94;
@@ -68,7 +68,7 @@
     border-radius: 10px;
     padding: 14px 16px;
     display: flex; flex-direction: column; gap: 12px;
-    min-width: 210px;
+    min-width: 186px;
     max-width: 300px;
   }
 
@@ -118,7 +118,7 @@
     /* local y=0 is the INWARD edge, y=depth is the OUTER edge.
        Padding reserves both strips so content never collides with
        the inward bar or the outer star. */
-    padding: 6px 0 14px;
+    padding: 8px 0 18px;
   }
 
   .tab.shape-round { border-radius: 11px 11px 0 0; }
@@ -130,14 +130,14 @@
   /* line-height 1 on both rows: inherited 1.4 makes them taller than
      they look and pushes content into the bar and star strips. */
   .tab .name { display: flex; align-items: baseline; gap: 5px; max-width: 100%; padding: 0 8px; line-height: 1; }
-  .tab .emoji { font-size: 16px; line-height: 1; }
+  .tab .emoji { font-size: 20px; line-height: 1; }
   .tab .who {
-    font-size: 12px; font-weight: 600; letter-spacing: .01em;
+    font-size: 15px; font-weight: 600; letter-spacing: .01em;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
   .tab .nums { display: flex; align-items: baseline; gap: 4px; font-variant-numeric: tabular-nums; line-height: 1; }
-  .tab .rnd { font-size: 11px; opacity: .78; }
-  .tab .tot { font-size: 18px; font-weight: 700; letter-spacing: -.02em; }
+  .tab .rnd { font-size: 14px; opacity: .78; }
+  .tab .tot { font-size: 25px; font-weight: 700; letter-spacing: -.02em; }
 
   /* tier: hide pieces as length shrinks */
   .tab.t-first .who   { max-width: 8ch; }
@@ -147,11 +147,11 @@
 
   /* markers — visual placeholders, real behaviour is M3 (#18) */
   .tab .bar {
-    position: absolute; top: 1px; left: 12%; right: 12%; height: 3px;
+    position: absolute; top: 2px; left: 12%; right: 12%; height: 4px;
     border-radius: 2px; background: #FFD98A; display: none;
   }
   .tab.won-round .bar { display: block; }
-  .tab .star { position: absolute; bottom: 1px; font-size: 11px; line-height: 1; display: none; color: #FFD98A; }
+  .tab .star { position: absolute; bottom: 2px; font-size: 13px; line-height: 1; display: none; color: #FFD98A; }
   .tab.leading .star { display: block; }
 
   @media (prefers-reduced-motion: reduce) {
@@ -199,10 +199,16 @@
    Constants
    ============================================================ */
 
-const DEPTH    = 56;   // how far a tab reaches into the screen
+const DEPTH    = 72;   // how far a tab reaches into the screen
 const GAP      = 6;    // between neighbours on the same edge
-const MIN_LEN  = 48;   // floor; below this an edge is full
-const MAX_LEN  = 190;
+const MIN_LEN  = 56;   // floor; below this an edge is full
+const MAX_LEN  = 200;
+/* Tabs deliberately do NOT fill their edge. Sized to the full span they
+   leave zero slack, so a neighbour can never visibly slide out of the
+   way — it can only snap when the sort order flips, which reads as the
+   push working in one direction and not the other. Holding ~8% back
+   gives the shove somewhere to go. */
+const FILL     = 0.92;
 const HOLD_MS  = 350;  // press-and-hold to lift, when locked
 const SLOP     = 8;    // movement that cancels the hold
 
@@ -314,23 +320,42 @@ function layout() {
     const n = group.length;
     if (!n) continue;
 
-    // Length shrinks with crowding, down to the floor.
-    const ideal = (span.length - GAP * (n - 1)) / n;
+    // Length shrinks with crowding, down to the floor, and stops short
+    // of filling the edge so there is always room to push into.
+    const ideal = (span.length * FILL - GAP * (n - 1)) / n;
     const len = Math.max(MIN_LEN, Math.min(MAX_LEN, ideal));
 
     // Desired centres from each tab's stored fraction.
     const half = len / 2;
     const lo = span.start + half;
     const hi = span.start + span.length - half;
+    const pitch = len + GAP;
     let centres = group.map(p => clamp(span.start + p.fraction * span.length, lo, hi));
 
-    // Relaxation: push neighbours apart rather than letting them overlap.
-    const pitch = len + GAP;
+    // Relaxation. The tab being dragged is PINNED and everything is
+    // pushed away from it in both directions. Relaxing from index 0
+    // instead makes the shove one-sided: approaching a neighbour from
+    // its right displaces the dragged tab rather than the neighbour.
+    const pin = group.findIndex(p => p.lifted);
+
+    if (pin >= 0) {
+      for (let i = pin + 1; i < n; i++) centres[i] = Math.max(centres[i], centres[i - 1] + pitch);
+      for (let i = pin - 1; i >= 0; i--) centres[i] = Math.min(centres[i], centres[i + 1] - pitch);
+      // A shoved run can leave the edge; slide it back so it fits.
+      const overRight = centres[n - 1] - hi;
+      if (overRight > 0) for (let i = 0; i < n; i++) centres[i] -= overRight;
+      const overLeft = lo - centres[0];
+      if (overLeft > 0) for (let i = 0; i < n; i++) centres[i] += overLeft;
+    }
+
+    // Final monotone passes. Guarantee no overlap and stay in bounds —
+    // on a full edge this can override the pin, which is correct: there
+    // is nowhere left to push.
     for (let i = 1; i < n; i++) centres[i] = Math.max(centres[i], centres[i - 1] + pitch);
     for (let i = n - 2; i >= 0; i--) centres[i] = Math.min(centres[i], centres[i + 1] - pitch);
-    // Backward pass can push the first tab out of bounds; nudge the run back in.
-    const overflow = lo - centres[0];
-    if (overflow > 0) for (let i = 0; i < n; i++) centres[i] = Math.min(centres[i] + overflow, hi);
+    const under = lo - centres[0];
+    if (under > 0) for (let i = 0; i < n; i++) centres[i] += under;
+    for (let i = 0; i < n; i++) centres[i] = Math.min(centres[i], hi);
 
     group.forEach((p, i) => {
       p._len = len;
@@ -366,10 +391,11 @@ const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
    Render
    ============================================================ */
 
+/* Thresholds scale with the type, which grew along with DEPTH. */
 function tierFor(len) {
-  if (len >= 120) return "";              // emoji + full name / round + total
-  if (len >= 88)  return "t-first";       // emoji + first name / round + total
-  if (len >= 64)  return "t-first t-norounds";
+  if (len >= 140) return "";              // emoji + full name / round + total
+  if (len >= 100) return "t-first";       // emoji + first name / round + total
+  if (len >= 72)  return "t-first t-norounds";
   return "t-emoji t-norounds";            // emoji / total
 }
 
