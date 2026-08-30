@@ -76,6 +76,18 @@
     text-transform: uppercase; color: var(--ink-dim);
   }
   .lead { font-size: 13px; color: var(--ink-dim); line-height: 1.5; }
+  .tiny {
+    font: 11px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+    background: none; border: 0; color: #59635E; cursor: pointer; padding: 2px;
+  }
+  .diagbox {
+    display: none; font: 11px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+    color: var(--ink-dim); text-align: left; white-space: pre-wrap;
+    background: #14191B; border: 1px solid var(--rule); border-radius: 8px; padding: 8px;
+  }
+  .diagbox.on { display: block; }
+  .diagbox b { color: var(--ink); font-weight: 600; }
+  .warn { color: #E5A25C; }
   .lead b { color: var(--ink); font-weight: 600; }
 
   .btn {
@@ -263,6 +275,8 @@
       <button data-arrange="off" aria-pressed="true">Locked</button>
       <button data-arrange="on" aria-pressed="false">Arrange</button>
     </div>
+    <button class="tiny" id="diagToggle"></button>
+    <div class="diagbox" id="diagbox"></div>
   </div>
 </div>
 
@@ -291,6 +305,18 @@ const HOLD_MS = 350;
 const SLOP    = 8;
 const MAX_PLAYERS = 16;
 const STORE = "keepingtabs.state";
+/* Bumped by hand each commit so a screenshot identifies its own build —
+   there is no build step to inject it. */
+const BUILD = "d91206a";
+
+/* Whether this context can persist at all. Private mode, a data: URL and
+   a full quota all throw, and the app has to keep working regardless. */
+let storageOk = null;
+let lastSave  = "never";
+function probeStorage() {
+  try { localStorage.setItem("kt.probe", "1"); localStorage.removeItem("kt.probe"); storageOk = true; }
+  catch (e) { storageOk = false; }
+}
 
 const EDGES = ["top", "right", "bottom", "left"];
 
@@ -349,7 +375,11 @@ function save() {
                                    emoji: p.emoji, edge: p.edge, fraction: p.fraction })),
       log: log
     }));
-  } catch (e) { /* private mode or quota - the game keeps working */ }
+    lastSave = new Date().toTimeString().slice(0, 8);
+  } catch (e) {
+    lastSave = "FAILED";     // private mode or quota - the game keeps working
+    storageOk = false;
+  }
 }
 
 function load() {
@@ -852,7 +882,35 @@ function paintHub() {
           : "<b>" + esc(tied[0].name.split(" ")[0]) + "</b> leads on <b>" + best + "</b>");
   }
   document.getElementById("undo").disabled = !log.some(e => e.type === "delta");
+  document.getElementById("diagToggle").textContent =
+    BUILD + (storageOk ? "" : "  \u00b7 no storage");
+  paintDiag();
 }
+
+function paintDiag() {
+  const box = document.getElementById("diagbox");
+  if (!box.classList.contains("on")) return;
+  const v = viewport();
+  const ins = EDGES.map(e => (safe[e] | 0)).join("/");
+  const eff = EDGES.map(e => (bleedFor(e) | 0)).join("/");
+  const deltas = log.filter(e => e.type === "delta").length;
+  box.innerHTML =
+    "build   <b>" + BUILD + "</b>\n" +
+    "mode    " + (isStandalone() ? "standalone" : "browser") + "\n" +
+    "inset   " + ins + " -> " + eff + "\n" +
+    "vp      " + Math.round(v.w) + "x" + Math.round(v.h) +
+      "   inner " + window.innerWidth + "x" + window.innerHeight + "\n" +
+    "screen  " + screen.width + "x" + screen.height + "\n" +
+    "storage " + (storageOk ? "ok" : "<span class='warn'>UNAVAILABLE</span>") +
+      "   saved " + lastSave + "\n" +
+    "state   " + players.length + " players, " + deltas + " scores";
+}
+
+document.getElementById("diagToggle").addEventListener("click", () => {
+  const box = document.getElementById("diagbox");
+  box.classList.toggle("on");
+  paintDiag();
+});
 
 document.getElementById("undo").addEventListener("click", () => undoLast(null));
 document.getElementById("arrange").addEventListener("click", e => {
@@ -889,6 +947,10 @@ function paintSheet() {
       '<button class="btn primary" data-act="add"' + (players.length >= MAX_PLAYERS ? " disabled" : "") + ">Add player</button>" +
       '<button class="btn" data-act="done">Done</button>' +
     "</div>" +
+    '<div class="btns">' +
+      '<button class="btn" data-act="reset"' + (log.length ? "" : " disabled") + ">Reset scores</button>" +
+      '<button class="btn" data-act="wipe">Start over</button>' +
+    "</div>" +
     (players.length >= MAX_PLAYERS ? '<div class="lead">Sixteen is the cap.</div>' : "");
 }
 
@@ -901,6 +963,15 @@ sheet.addEventListener("click", e => {
 
   if (act === "add")    { addPlayer(); rebuildTabs(); commit(); paintSheet(); return; }
   if (act === "done")   { closeSheet(); return; }
+  if (act === "reset")  { log = []; commit(); paintSheet(); return; }
+  if (act === "wipe") {
+    players = []; log = [];
+    try { localStorage.removeItem(STORE); } catch (err) {}
+    ["Ann", "Rai", "Bo", "Kit"].forEach(n => addPlayer(n));
+    autoArrange();
+    rebuildTabs(); commit(); paintSheet();
+    return;
+  }
   if (act === "remove") { removePlayer(rowId); rebuildTabs(); commit(); paintSheet(); return; }
 });
 
@@ -965,6 +1036,7 @@ window.addEventListener("resize", () => {
 window.addEventListener("orientationchange", () =>
   setTimeout(() => { readSafeInsets(); layout(true); }, 250));
 
+probeStorage();
 readSafeInsets();
 if (!load()) {
   ["Ann", "Rai", "Bo", "Kit"].forEach(n => addPlayer(n));
