@@ -446,7 +446,7 @@ const STORE = "keepingtabs.state";
    its own build. Not a commit hash: a commit cannot contain its own hash,
    and amending one in only ever leaves it pointing at the commit before.
    The commit message names the build, so `git log --grep` maps it back. */
-const BUILD = "0830-12";
+const BUILD = "0830-13";
 
 /* Whether this context can persist at all. Private mode, a data: URL and
    a full quota all throw, and the app has to keep working regardless. */
@@ -988,10 +988,20 @@ function pendingOf() { return parseInt(entry, 10) || 0; }
 
 const LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
 
+/* What the next letter will actually be. Word starts capitalise
+   themselves and shift inverts that, so the two agree by construction. */
+function nextIsUpper() {
+  const startsWord = nameBuf.length === 0 || nameBuf.slice(-1) === " ";
+  return startsWord !== shiftOn;
+}
+
 function paintName(p, box) {
   const shown = nameBuf.length ? esc(nameBuf) : '<span style="opacity:.45">Name</span>';
+  /* Keys show the case they will insert, the way a phone keyboard does —
+     it is the only honest indicator of what shift is currently doing. */
+  const up = nextIsUpper();
   const keys =
-    LETTERS.map(c => '<button data-n="' + c + '">' + c + "</button>").join("") +
+    LETTERS.map(c => '<button data-n="' + c + '">' + (up ? c : c.toLowerCase()) + "</button>").join("") +
     '<button class="act" data-n="shift"' + (shiftOn ? ' aria-pressed="true"' : "") + ">\u21e7</button>" +
     '<button class="act" data-n="space">\u2423</button>' +
     '<button class="act" data-n="del">\u232b</button>' +
@@ -1123,10 +1133,7 @@ stage.addEventListener("click", e => {
     } else if (k === "shift") {
       shiftOn = !shiftOn; layout(false);
     } else if (nameBuf.length < 24) {
-      /* Word starts capitalise themselves; shift overrides for the rest, so
-         "van Aken" and "McDonald" are both reachable. */
-      const startsWord = nameBuf.length === 0 || nameBuf.slice(-1) === " ";
-      nameBuf += (startsWord !== shiftOn) ? k : k.toLowerCase();
+      nameBuf += nextIsUpper() ? k : k.toLowerCase();
       shiftOn = false;
       layout(false);
     }
