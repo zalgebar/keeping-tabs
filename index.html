@@ -174,6 +174,41 @@
   }
   .tab.lifted { cursor: grabbing; filter: brightness(1.14); box-shadow: 0 0 0 2px #fff8, 0 8px 24px #0009; z-index: 10; }
   .tab.settling { transition: transform .22s cubic-bezier(.2,.9,.3,1), width .22s cubic-bezier(.2,.9,.3,1), height .22s cubic-bezier(.2,.9,.3,1), box-shadow .18s ease, filter .18s ease; }
+  /* ---- ROUND ENTRY PROTOTYPE ---- */
+  .tab.strip .compact, .tab.strip .panel { display: none; }
+  .tab .strip { display: none; }
+  .tab.strip .strip {
+    display: flex; flex-direction: column; gap: 5px;
+    width: 100%; height: 100%; padding: 7px 8px calc(8px + var(--bleed, 0px));
+    align-items: stretch; min-height: 0;
+  }
+  .tab.strip { z-index: 5; }
+  .strip .who2 {
+    display: flex; align-items: center; gap: 5px; flex: none;
+    font-size: 13px; font-weight: 700; line-height: 1;
+    white-space: nowrap; overflow: hidden;
+  }
+  .strip .val {
+    flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center;
+    font-size: 40px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums;
+    background: rgba(var(--ink-rgb),.14); border-radius: 9px;
+  }
+  .strip .steps { display: flex; gap: 5px; flex: none; }
+  .strip .steps button {
+    flex: 1 1 0; min-width: 0; font: inherit; font-size: 26px; font-weight: 700;
+    min-height: 46px; border: 0; border-radius: 9px; cursor: pointer;
+    color: var(--ink); background: rgba(var(--anti-rgb),.26);
+  }
+  .strip .done {
+    flex: none; font: inherit; font-size: 24px; font-weight: 700; min-height: 46px;
+    border: 0; border-radius: 9px; cursor: pointer;
+    background: rgba(var(--ink-rgb),.92); color: rgba(var(--anti-rgb),1);
+  }
+  /* A confirmed player folds back to an ordinary tab, so the table can see
+     at a glance who it is still waiting on. */
+  .tab.locked-in .compact { opacity: .55; }
+  .tab.locked-in .bar { background: rgba(var(--ink-rgb),.9); }
+
   .tab.open { z-index: 30; box-shadow: 0 10px 40px #000b; cursor: default; }
 
   .tab .name { display: flex; align-items: baseline; gap: 5px; max-width: 100%; padding: 0 8px; line-height: 1; }
@@ -532,6 +567,7 @@
   <div class="hub">
     <h1>Keeping Tabs</h1>
     <div class="lead" id="lead"></div>
+    <button class="btn" id="roundentry">Enter round</button>
     <button class="btn primary" id="endRound">End round</button>
     <div class="btns">
       <button class="btn" id="undo">Undo</button>
@@ -580,7 +616,7 @@ const STORE = "keepingtabs.state";
    its own build. Not a commit hash: a commit cannot contain its own hash,
    and amending one in only ever leaves it pointing at the commit before.
    The commit message names the build, so `git log --grep` maps it back. */
-const BUILD = "0901-08";
+const BUILD = "0901-09";
 
 /* Whether this context can persist at all. Private mode, a data: URL and
    a full quota all throw, and the app has to keep working regardless. */
@@ -660,6 +696,41 @@ const COLORS = ["#FB1900","#D75600","#AD7300","#7C8500",
 let players = [];
 let log = [];                    // { id, ts, type:"delta", playerId, value }
 let arrangeMode = false;
+
+/* ---- ROUND ENTRY PROTOTYPE ----
+   Everyone enters this round at once, each in their own seat's
+   orientation. Pending values live here and are only written to the log
+   on confirm, so backing out costs nothing. */
+let roundEntry = false;
+let pending = {};            // playerId -> number being entered
+let lockedIn = {};           // playerId -> true once confirmed
+
+/* Depth is budgeted per axis, not per tab: two facing strips share one
+   dimension, and the center has to keep enough room for End round. */
+/* Depth is a share of the axis it eats into, not a constant: 250 is a good
+   strip on an iPad and most of a phone's width. */
+function stripWant(edge) {
+  const v = viewport();
+  const across = (edge === "top" || edge === "bottom") ? v.h : v.w;
+  return Math.min(250, across * 0.3);
+}
+/* Strips grow along the edge as well as into it. A tab is capped at 200
+   because it is a label; a strip is a control, and 200 of an iPad's 1180pt
+   edge leaves the screen emptier at the exact moment everyone is using it.
+   The relaxation loop distributes this the same way it distributes tabs, so
+   crowded edges still fall back to sharing. */
+const STRIP_MAX_LEN = 430;
+const CENTER_MIN = 130;
+function oppositeEdge(e) {
+  return e === "top" ? "bottom" : e === "bottom" ? "top" : e === "left" ? "right" : "left";
+}
+function stripDepth(edge) {
+  const v = viewport();
+  const across = (edge === "top" || edge === "bottom") ? v.h : v.w;
+  const facing = players.some(q => q.edge === oppositeEdge(edge));
+  const budget = facing ? (across - CENTER_MIN) / 2 : across - CENTER_MIN;
+  return Math.max(DEPTH, Math.min(stripWant(edge), budget)) + bleedFor(edge);
+}
 let prefs = { ambient: true, wakeLock: true, winCondition: "high", startRound: 1 };
 let openId = null;               // player whose panel is expanded
 let entry = "";                  // THIS ROUND'S SCORE being edited, as a string ("" is 0)
@@ -935,7 +1006,14 @@ function edgeRange(edge, rect) {
 function edgeSpan(edge, rect) {
   const len = edgeLength(edge, rect);
   const start = (edge === "top" || edge === "bottom") ? rect.l : rect.t;
-  return { start: start + DEPTH, length: Math.max(0, len - DEPTH * 2) };
+  /* The corner reservation is one TAB depth, which is the right number
+     until a tab stops being tab-deep. A strip is three times deeper, so
+     during round entry the corners have to be reserved at the depth of
+     the edges that actually meet there — the perpendicular ones. */
+  const keep = roundEntry
+    ? stripDepth((edge === "top" || edge === "bottom") ? "left" : "top")
+    : DEPTH;
+  return { start: start + keep, length: Math.max(0, len - keep * 2) };
 }
 function edgeCapacity(edge, rect) {
   return Math.max(0, Math.floor((edgeSpan(edge, rect).length + GAP) / (MIN_LEN + GAP)));
@@ -968,7 +1046,8 @@ function layout(commitPos) {
     if (!n) continue;
 
     const ideal = (span.length * FILL - GAP * (n - 1)) / n;
-    const len = Math.max(MIN_LEN, Math.min(MAX_LEN, ideal));
+    const cap = roundEntry ? STRIP_MAX_LEN : MAX_LEN;
+    const len = Math.max(MIN_LEN, Math.min(cap, ideal));
     const half = len / 2;
     const lo = span.start + half, hi = span.start + span.length - half;
     const pitch = len + GAP;
@@ -1085,7 +1164,9 @@ function render(rect) {
     const el = p.el;
     const open = p.id === openId;
     const bleed = bleedFor(p.edge);
-    const size = open ? panelSize(p.edge, rect, p.textSize) : { len: p._len, depth: edgeDepth(p.edge) };
+    const inStrip = roundEntry && !lockedIn[p.id];
+    const size = open ? panelSize(p.edge, rect, p.textSize)
+               : { len: p._len, depth: inStrip ? stripDepth(p.edge) : edgeDepth(p.edge) };
 
     let along = p._along;
     if (open) {
@@ -1101,7 +1182,7 @@ function render(rect) {
        layout. An open panel does its own padding, so leaving the tab's
        in place boxes the panel inside 24px it cannot use — visible in
        landscape as dead space above the home indicator. */
-    el.style.padding = open ? "0px" : ("7px 0 " + (PAD_OUT + bleed) + "px");
+    el.style.padding = (open || inStrip) ? "0px" : ("7px 0 " + (PAD_OUT + bleed) + "px");
     el.style.setProperty("--bleed", bleed + "px");
     el.style.transform = tabTransform(p.edge, along, size.len, size.depth);
 
@@ -1113,6 +1194,8 @@ function render(rect) {
                    (p.textSize === "large" ? " size-large" : "") +
                    (p.lifted ? " lifted" : (sameEdge ? " settling" : "")) +
                    (open ? " open" : "") +
+                   (inStrip ? " strip" : "") +
+                   (roundEntry && lockedIn[p.id] ? " locked-in" : "") +
                    (leadAt !== null && (totals[p.id] || 0) === leadAt ? " leading" : "") +
                    (hotAt !== null && (lastRound[p.id] || 0) === hotAt ? " won-round" : "");
     p._renderedEdge = p.edge;
@@ -1129,6 +1212,7 @@ function render(rect) {
     rnd.textContent = showRound ? (roundScores[p.id] || 0) : "";
     rnd.style.display = showRound ? "" : "none";
     if (open) paintPanel(p);
+    if (inStrip) paintStrip(p);
   }
 
   const occupied = e => players.some(p => p.edge === e);
@@ -1149,7 +1233,8 @@ function buildTab(p) {
       '<span class="star">★</span>' +
       '<span class="bar"></span>' +
     '</div>' +
-    '<div class="panel"></div>';
+    '<div class="panel"></div>' +
+    '<div class="strip"></div>';
   el.querySelector(".emoji").textContent = p.emoji;
   el.addEventListener("pointerdown", e => onPointerDown(e, p));
   stage.appendChild(el);
@@ -1303,6 +1388,48 @@ function paintIdentity(p, box) {
     "</div>" + body + identityFoot(p);
 }
 
+/* ---- ROUND ENTRY PROTOTYPE ---- */
+function paintStrip(p) {
+  const box = p.el.querySelector(".strip");
+  const v = pending[p.id] || 0;
+  /* A stepper, not a keypad. Round-based games mostly want small integers
+     — tricks taken, phases cleared — and three columns inside a tab's own
+     length is a 34pt key, which is not a key. */
+  box.innerHTML =
+    '<div class="who2"><span>' + p.emoji + "</span><span>" + esc(p.name.split(" ")[0]) + "</span></div>" +
+    '<div class="val">' + v + "</div>" +
+    '<div class="steps">' +
+      '<button data-step="-1">\u2212</button>' +
+      '<button data-step="1">+</button>' +
+    "</div>" +
+    '<button class="done" data-lockin>\u2713</button>';
+}
+
+function startRoundEntry() {
+  roundEntry = true; pending = {}; lockedIn = {};
+  /* Opens holding what is already banked this round, so it edits a value
+     rather than adding to one — the same rule the panel follows. */
+  players.forEach(q => { pending[q.id] = roundScores[q.id] || 0; });
+  layout(true); paintHub();
+}
+function cancelRoundEntry() { roundEntry = false; pending = {}; lockedIn = {}; layout(true); paintHub(); }
+function lockIn(p) {
+  const delta = (pending[p.id] || 0) - (roundScores[p.id] || 0);
+  if (delta) score(p, delta);
+  lockedIn[p.id] = true;
+  layout(true); paintHub();
+}
+function allLockedIn() { return players.length > 0 && players.every(q => lockedIn[q.id]); }
+
+stage.addEventListener("click", e => {
+  if (!roundEntry) return;
+  const p = players.find(q => q.el.contains(e.target));
+  if (!p || lockedIn[p.id]) return;
+  const st = e.target.closest("[data-step]");
+  if (st) { pending[p.id] = (pending[p.id] || 0) + parseInt(st.dataset.step, 10); layout(false); return; }
+  if (e.target.closest("[data-lockin]")) lockIn(p);
+});
+
 function paintPanel(p) {
   const box = p.el.querySelector(".panel");
   if (panelView !== "score") return paintIdentity(p, box);
@@ -1355,6 +1482,10 @@ function score(p, delta) {
 /* End Round drops a marker. Round scores become the deltas after it,
    which is to say zero, and the counter moves on. */
 function endRound() {
+  /* Ending the round ends the entry that fed it. Without this you finish a
+     round and stay in strips with every player already confirmed — a state
+     whose only exit is a button that now reads "Everyone is in". */
+  if (roundEntry) { roundEntry = false; pending = {}; lockedIn = {}; }
   if (!log.some(e => e.type === "delta")) return;      // nothing to end
   log.push({ id: uid(), ts: Date.now(), type: "round", n: roundNo() });
   commit();
@@ -1498,6 +1629,7 @@ scrim.addEventListener("click", () => { closePanel(); closeSheet(); });
 let drag = null;
 
 function onPointerDown(e, p) {
+  if (roundEntry) return;                   // strips are live: no dragging, no panels
   if (openId) return;                       // panel open: no dragging
   if (e.button !== undefined && e.button !== 0) return;
   e.preventDefault();
@@ -1587,8 +1719,21 @@ function paintHub() {
   lead.innerHTML = "Round <b>" + n + "</b><br>" + line;
 
   document.getElementById("undo").disabled = !log.length;
-  document.getElementById("endRound").disabled = !scored ||
-    log.length === 0 || log[log.length - 1].type === "round";
+  const re = document.getElementById("roundentry");
+  if (re) {
+    re.textContent = roundEntry
+      ? (allLockedIn() ? "Everyone is in" : "Cancel round entry")
+      : "Enter round";
+    re.disabled = !players.length;
+  }
+  /* The second clause is round entry's: ending mid-entry would bank a
+     partial round, keeping whoever had confirmed and discarding every
+     pending value with no way back, since pending was never in the log to
+     undo. One expression rather than two assignments — a second one further
+     up would simply have been overwritten here. */
+  document.getElementById("endRound").disabled =
+    (!scored || log.length === 0 || log[log.length - 1].type === "round") ||
+    (roundEntry && !allLockedIn());
   document.getElementById("diagToggle").textContent =
     BUILD + (storageOk ? "" : "  \u00b7 no storage");
   paintDiag();
@@ -1620,6 +1765,9 @@ document.getElementById("diagToggle").addEventListener("click", () => {
 });
 
 document.getElementById("undo").addEventListener("click", () => undoLast(null));
+document.getElementById("roundentry").addEventListener("click", () => {
+  if (roundEntry) cancelRoundEntry(); else startRoundEntry();
+});
 document.getElementById("endRound").addEventListener("click", endRound);
 document.getElementById("rounds").addEventListener("click", () => openSheet("rounds"));
 document.getElementById("game").addEventListener("click", () => openSheet("game"));
