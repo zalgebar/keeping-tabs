@@ -572,7 +572,6 @@ const FILL    = 0.92;
    page still runs under the home indicator. Apple's own values. */
 const HOME_BAR_PHONE  = 34;
 const HOME_BAR_TABLET = 20;
-const HOLD_MS = 350;
 const SLOP    = 8;
 const MAX_PLAYERS = 16;
 const AMBIENT_MS = 20000;   // idle before the tabs sink back
@@ -581,7 +580,7 @@ const STORE = "keepingtabs.state";
    its own build. Not a commit hash: a commit cannot contain its own hash,
    and amending one in only ever leaves it pointing at the commit before.
    The commit message names the build, so `git log --grep` maps it back. */
-const BUILD = "0901-07";
+const BUILD = "0901-08";
 
 /* Whether this context can persist at all. Private mode, a data: URL and
    a full quota all throw, and the app has to keep working regardless. */
@@ -1503,10 +1502,15 @@ function onPointerDown(e, p) {
   if (e.button !== undefined && e.button !== 0) return;
   e.preventDefault();
   p.el.setPointerCapture(e.pointerId);
-  drag = { p: p, id: e.pointerId, x0: e.clientX, y0: e.clientY, active: false, moved: false, timer: null };
+  drag = { p: p, id: e.pointerId, x0: e.clientX, y0: e.clientY, active: false, moved: false };
 
+  /* Locked means locked. There used to be a press-and-hold here that
+     lifted a tab without unlocking anything, which made resting a thumb
+     too long on your own tab enough to move it — and the whole reason to
+     lock is that a tab's position is a seat, not a preference. Arrange is
+     the only way in, and it lifts on contact because that is what you
+     switched it on to do. */
   if (arrangeMode) lift(p);
-  else drag.timer = setTimeout(() => { if (drag) lift(p); }, HOLD_MS);
 
   window.addEventListener("pointermove", onPointerMove);
   window.addEventListener("pointerup", onPointerUp);
@@ -1525,10 +1529,7 @@ function lift(p) {
 function onPointerMove(e) {
   if (!drag || e.pointerId !== drag.id) return;
   const dx = e.clientX - drag.x0, dy = e.clientY - drag.y0;
-  if (!drag.moved && Math.hypot(dx, dy) > SLOP) {
-    drag.moved = true;
-    if (!drag.active && drag.timer) { clearTimeout(drag.timer); drag.timer = null; }
-  }
+  if (!drag.moved && Math.hypot(dx, dy) > SLOP) drag.moved = true;
   if (!drag.active) return;
   const hit = projectToEdge(e.clientX, e.clientY, safeRect());
   drag.p.edge = hit.edge;
@@ -1538,7 +1539,6 @@ function onPointerMove(e) {
 
 function onPointerUp(e) {
   if (!drag || (e && e.pointerId !== drag.id)) return;
-  if (drag.timer) clearTimeout(drag.timer);
   const p = drag.p, wasDrag = drag.active, moved = drag.moved;
   drag = null;
   if (wasDrag) {
