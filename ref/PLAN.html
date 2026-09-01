@@ -471,7 +471,7 @@
   <header class="masthead">
     <p class="eyebrow">Product plan</p>
     <h1>Keeping Tabs</h1>
-    <p class="deck">A board game scorekeeper for the device in the middle of the table. Every player gets a tab on the screen's edge, dragged to sit closest to where they're actually sitting — and rotated so their score reads right-side up from their chair.</p>
+    <p class="deck">A board game scorekeeper for a device the whole table can see. Every player gets a tab on the screen's edge, dragged to sit closest to where they're actually sitting — and rotated so their score reads right-side up from their chair.</p>
     <div class="meta">
       <span class="chip now">v1.0 · Local</span>
       <span class="chip next">v1.1 · Sync</span>
@@ -485,6 +485,7 @@
     <ol>
       <li><a href="#concept">The concept</a></li>
       <li><a href="#decided">Decisions already made</a></li>
+      <li><a href="#playtest">Play-test feedback</a></li>
       <li><a href="#mechanic">The edge-tab mechanic</a></li>
       <li><a href="#scoring">The scoring model</a></li>
       <li><a href="#v10">v1.0 — Local scope</a></li>
@@ -501,7 +502,7 @@
     <span class="tab">Concept</span>
     <h2>The concept</h2>
     <p>Score pads work because they sit flat on the table and everyone can see them. Phone scorekeeping apps break that — one person holds the device, everyone else asks "wait, what am I on?"</p>
-    <p>Keeping Tabs puts the device flat in the middle of the table and treats the screen edge as the table edge. Each player gets a tab protruding from the perimeter. You drag your tab to the edge nearest where you're sitting, and it stays there for the whole game. Because the tab's text is rotated to face outward, everyone reads their own score upright without leaning across.</p>
+    <p>Keeping Tabs treats the screen edge as the table edge. Each player gets a tab protruding from the perimeter. You drag your tab to the edge nearest where you're sitting, and it stays there for the whole game. The device needs to be visible to everyone and roughly oriented to seats — <em>not</em> necessarily in the middle of the table, which play-testing showed is contested ground. Because the tab's text is rotated to face outward, everyone reads their own score upright without leaning across.</p>
     <p>The gimmick is the product. Everything else in this plan is in service of making the tabs feel good.</p>
     <div class="note">
       <span class="label">Design principle</span>
@@ -570,6 +571,49 @@
         <dd>Nostr-backed, invisible to the user, deferred to v1.1. Local storage stays the source of truth in both versions.</dd>
       </div>
     </dl>
+  </section>
+
+  <section id="playtest">
+    <span class="tab">Play-tests</span>
+    <h2>Play-test feedback</h2>
+    <p>Findings from real games. Kept apart from the rest of this document because they are evidence rather than intention — where they contradict the plan, they win.</p>
+
+    <h3>30 Aug 2026 &middot; first real game, iPad in the middle of the table</h3>
+
+    <h4>The middle of the table is contested</h4>
+    <p>Players found the device distracting, and were unsure what the focus of the game was meant to be. Nearly every game has a draw pile, a discard, a board or a market in the middle, and the iPad was competing with them for the same surface.</p>
+    <p>What this indicts is the <strong>placement assumption, not the mechanic</strong>. The tabs need the device to be visible to everyone and roughly oriented to seats. They do not need the centre. The centre was an inference about how to achieve that, and it turns out to be the most contested surface on the table.</p>
+    <p>The payoff scales with how surrounded the device is. Fully surrounded, rotation works for everyone. At the end of a table or on a side table, it still works for whoever sits to the left and right. With everyone on one side it degrades to an ordinary scorekeeper — still useful, no longer special. That is a narrower claim than this plan originally made, and it is the true one.</p>
+
+    <h4>Not everyone wants to enter their own score</h4>
+    <p>Some players would rather call their score to a single scorekeeper than reach over and tap. That splits the proposition in two, and only one half needs everyone to take part:</p>
+    <ul>
+      <li><strong>Reading</strong> — every player sees their own score upright from their seat. Valuable regardless of who does the tapping.</li>
+      <li><strong>Entry</strong> — every player taps their own tab. Valuable only at tables that want it.</li>
+    </ul>
+    <p>It also exposes a direct conflict with the panel. It is rotated to face the player whose tab it is, which is exactly wrong for a lone scorekeeper: scoring the player opposite means reading an upside-down keypad. The edge-anchored panel is right for self-service and wrong for a scorekeeper, and the app currently only offers one of them.</p>
+
+    <h4>Where the centre is genuinely free</h4>
+    <p>Games and activities the premise still fits, unchanged. Note how many are round-based — that is the feature these need, not a speculative one.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Kind</th><th>Examples</th><th>Why it fits</th></tr></thead>
+        <tbody>
+          <tr><td>No table at all</td><td>Darts, pub quiz, bocce, cornhole, bowling, pool, mini golf</td><td>Scoring is the whole chore and there is nothing to compete with</td></tr>
+          <tr><td>Roll-and-write</td><td>Qwixx, Yahtzee, Welcome To&hellip;, Railroad Ink, Cartographers, That&rsquo;s Pretty Clever</td><td>Personal sheets; the only shared object is dice, which live in a lid to one side</td></tr>
+          <tr><td>Personal tableau</td><td>Sushi Go, 7 Wonders, Scattergories, Boggle, Farkle, Liar&rsquo;s Dice</td><td>Everything is played in front of a player, nothing accumulates centrally</td></tr>
+          <tr><td>Trick-taking</td><td>Wizard, Oh Hell, Skull King, Hearts, Spades, Euchre</td><td>The centre holds one trick then is swept clear — transient, not occupied. Bid-then-score is exactly the round-and-total model</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Responses under consideration</h3>
+    <p>None of these are committed. They are what the findings point at.</p>
+    <ul>
+      <li><strong>Let the app recede.</strong> Saturated tabs on black, permanently lit, look like the game rather than the scorepad. Dimming to near-monochrome after a few seconds and waking on touch would answer the distraction complaint directly, and costs little.</li>
+      <li><strong>Re-test on a phone.</strong> An iPad is a large object on a table; the same app on a phone occupies a coaster. Some part of the complaint is likely the footprint rather than the concept, and that is worth separating before concluding anything.</li>
+      <li><strong>A scorekeeper mode.</strong> Panels open facing one designated seat instead of the player whose tab it is. This is the case the centred dialog rejected in M2 would have served well — it was not wrong, it was wrong for self-service entry.</li>
+    </ul>
   </section>
 
   <section id="mechanic">
