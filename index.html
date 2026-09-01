@@ -331,8 +331,10 @@
               -webkit-overflow-scrolling: touch; touch-action: pan-x pan-y; }
   table.rounds { border-collapse: separate; border-spacing: 0;
                  width: max-content; min-width: 100%; font-variant-numeric: tabular-nums; }
+  /* Centred, not right-aligned. A decimal column is correct for a ledger
+     and wrong here — a scorepad puts the number under the name. */
   table.rounds th, table.rounds td {
-    padding: 8px 12px; text-align: right; font-size: 16px; white-space: nowrap;
+    padding: 8px 12px; text-align: center; font-size: 16px; white-space: nowrap;
     border-bottom: 1px solid var(--rule);
   }
   table.rounds th {
@@ -353,6 +355,12 @@
   .setting { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 2px; }
   .setting span { font-size: 13px; color: var(--ink-dim); }
   .setting .seg { flex: 0 0 auto; width: 132px; }
+  .stepper { display: flex; align-items: center; gap: 4px; flex: 0 0 auto; }
+  .stepper button {
+    width: 40px; height: 36px; font: inherit; font-size: 18px; cursor: pointer;
+    background: #262E31; color: var(--ink); border: 1px solid var(--rule); border-radius: 7px;
+  }
+  .stepper b { min-width: 40px; text-align: center; font-variant-numeric: tabular-nums; font-size: 17px; }
   /* Emoji is chosen from a popup, not typed into a field. There is no way
      to force the emoji keyboard on any OS — no inputmode value, nothing on
      iOS or Android — so a picker we draw is the only reliable answer. The
@@ -408,7 +416,10 @@
       <button class="btn" id="undo">Undo</button>
       <button class="btn" id="rounds">Rounds</button>
     </div>
-    <button class="btn" id="manage">Players</button>
+    <div class="btns">
+      <button class="btn" id="manage">Players</button>
+      <button class="btn" id="game">Game</button>
+    </div>
     <div class="seg" id="arrange">
       <button data-arrange="off" aria-pressed="true">Locked</button>
       <button data-arrange="on" aria-pressed="false">Arrange</button>
@@ -449,7 +460,7 @@ const STORE = "keepingtabs.state";
    its own build. Not a commit hash: a commit cannot contain its own hash,
    and amending one in only ever leaves it pointing at the commit before.
    The commit message names the build, so `git log --grep` maps it back. */
-const BUILD = "0830-14";
+const BUILD = "0830-15";
 
 /* Whether this context can persist at all. Private mode, a data: URL and
    a full quota all throw, and the app has to keep working regardless. */
@@ -482,7 +493,7 @@ const COLORS = ["#B3591F","#43489B","#1E5C46","#A02F2C","#6B4C9A","#0F6E77",
 let players = [];
 let log = [];                    // { id, ts, type:"delta", playerId, value }
 let arrangeMode = false;
-let prefs = { ambient: true, wakeLock: true, winCondition: "high" };
+let prefs = { ambient: true, wakeLock: true, winCondition: "high", startRound: 1 };
 let openId = null;               // player whose panel is expanded
 let entry = "";                  // THIS ROUND'S SCORE being edited, as a string ("" is 0)
 let panelView = "score";         // score | name
@@ -514,7 +525,10 @@ function lastMarker() {
   for (let i = log.length - 1; i >= 0; i--) if (log[i].type === "round") return i;
   return -1;
 }
-function roundNo() { return log.filter(e => e.type === "round").length + 1; }
+/* Display only. Phase 10 counts phases, some games start at 0, and a
+   game picked up halfway starts wherever it left off. The log is
+   unaffected — this is an offset on what the counter reads. */
+function roundNo() { return prefs.startRound + log.filter(e => e.type === "round").length; }
 
 function recompute() {
   totals = {}; roundScores = {};
@@ -529,7 +543,7 @@ function recompute() {
 
 /* Completed rounds, rebuilt from the markers. */
 function roundTable() {
-  const out = []; let acc = {}; let n = 1;
+  const out = []; let acc = {}; let n = prefs.startRound;
   for (const e of log) {
     if (e.type === "delta") acc[e.playerId] = (acc[e.playerId] || 0) + e.value;
     else if (e.type === "round") { out.push({ n: n++, scores: acc }); acc = {}; }
@@ -576,6 +590,7 @@ function load() {
       if (typeof d.prefs.ambient === "boolean") prefs.ambient = d.prefs.ambient;
       if (typeof d.prefs.wakeLock === "boolean") prefs.wakeLock = d.prefs.wakeLock;
       if (d.prefs.winCondition === "low" || d.prefs.winCondition === "high") prefs.winCondition = d.prefs.winCondition;
+      if (typeof d.prefs.startRound === "number") prefs.startRound = clamp(d.prefs.startRound | 0, 0, 99);
     }
     return true;
   } catch (e) { return false; }
@@ -1285,6 +1300,7 @@ document.getElementById("diagToggle").addEventListener("click", () => {
 document.getElementById("undo").addEventListener("click", () => undoLast(null));
 document.getElementById("endRound").addEventListener("click", endRound);
 document.getElementById("rounds").addEventListener("click", () => openSheet("rounds"));
+document.getElementById("game").addEventListener("click", () => openSheet("game"));
 document.getElementById("arrange").addEventListener("click", e => {
   const b = e.target.closest("button"); if (!b) return;
   arrangeMode = b.dataset.arrange === "on";
@@ -1304,6 +1320,33 @@ function openSheet(view) {
   scrim.classList.add("on"); paintSheet();
 }
 function closeSheet() { sheet.classList.remove("on"); scrim.classList.remove("on"); closeEmoji(); }
+
+function paintGame() {
+  const seg = (act, opts) => '<div class="seg">' + opts.map(o =>
+    '<button data-act="' + act + '" data-v="' + o[0] + '"' +
+    (o[2] ? ' aria-pressed="true"' : "") + ">" + o[1] + "</button>").join("") + "</div>";
+
+  sheet.innerHTML =
+    "<h2>Game</h2>" +
+    '<div class="setting"><span>Winner</span>' +
+      seg("win", [["high", "Highest", prefs.winCondition === "high"],
+                  ["low",  "Lowest",  prefs.winCondition === "low"]]) + "</div>" +
+    '<div class="setting"><span>First round is</span>' +
+      '<div class="stepper">' +
+        '<button data-act="rnum" data-v="-1" aria-label="Fewer">\u2212</button>' +
+        "<b>" + prefs.startRound + "</b>" +
+        '<button data-act="rnum" data-v="1" aria-label="More">+</button>' +
+      "</div></div>" +
+    '<div class="setting"><span>Keep screen awake</span>' +
+      seg("lock", [["on", "On", prefs.wakeLock], ["off", "Off", !prefs.wakeLock]]) + "</div>" +
+    '<div class="setting"><span>Dim when idle</span>' +
+      seg("ambient", [["on", "On", prefs.ambient], ["off", "Off", !prefs.ambient]]) + "</div>" +
+    '<div class="btns">' +
+      '<button class="btn" data-act="reset"' + (log.length ? "" : " disabled") + ">Reset scores</button>" +
+      '<button class="btn" data-act="wipe">Start over</button>' +
+    "</div>" +
+    '<button class="btn" data-act="done">Done</button>';
+}
 
 function paintRounds() {
   const table = roundTable();
@@ -1330,6 +1373,7 @@ function paintRounds() {
 
 function paintSheet() {
   if (sheetView === "rounds") return paintRounds();
+  if (sheetView === "game") return paintGame();
   const rows = players.map(p =>
     '<div class="prow2" data-id="' + p.id + '">' +
       '<button class="emo" data-act="emoji" style="background:' + p.color + '" ' +
@@ -1350,31 +1394,7 @@ function paintSheet() {
       '<button class="btn primary" data-act="add"' + (players.length >= MAX_PLAYERS ? " disabled" : "") + ">Add player</button>" +
       '<button class="btn" data-act="done">Done</button>' +
     "</div>" +
-    '<div class="setting">' +
-      "<span>Winner</span>" +
-      '<div class="seg">' +
-        '<button data-act="win" data-v="high"' + (prefs.winCondition === "high" ? ' aria-pressed="true"' : "") + ">Highest</button>" +
-        '<button data-act="win" data-v="low"'  + (prefs.winCondition === "low"  ? ' aria-pressed="true"' : "") + ">Lowest</button>" +
-      "</div>" +
-    "</div>" +
-    '<div class="setting">' +
-      "<span>Keep screen awake</span>" +
-      '<div class="seg">' +
-        '<button data-act="lock" data-v="on"'  + (prefs.wakeLock ? ' aria-pressed="true"' : "") + ">On</button>" +
-        '<button data-act="lock" data-v="off"' + (prefs.wakeLock ? "" : ' aria-pressed="true"') + ">Off</button>" +
-      "</div>" +
-    "</div>" +
-    '<div class="setting">' +
-      "<span>Dim when idle</span>" +
-      '<div class="seg">' +
-        '<button data-act="ambient" data-v="on"'  + (prefs.ambient ? ' aria-pressed="true"' : "") + ">On</button>" +
-        '<button data-act="ambient" data-v="off"' + (prefs.ambient ? "" : ' aria-pressed="true"') + ">Off</button>" +
-      "</div>" +
-    "</div>" +
-    '<div class="btns">' +
-      '<button class="btn" data-act="reset"' + (log.length ? "" : " disabled") + ">Reset scores</button>" +
-      '<button class="btn" data-act="wipe">Start over</button>' +
-    "</div>" +
+
     (players.length >= MAX_PLAYERS ? '<div class="lead">Sixteen is the cap.</div>' : "");
 }
 
@@ -1395,6 +1415,11 @@ sheet.addEventListener("click", e => {
   }
   if (act === "ambient") { prefs.ambient = b.dataset.v === "on"; save(); wake(); paintSheet(); return; }
   if (act === "win")  { prefs.winCondition = b.dataset.v; save(); commit(); paintSheet(); return; }
+  if (act === "rnum") {
+    prefs.startRound = clamp(prefs.startRound + parseInt(b.dataset.v, 10), 0, 99);
+    save(); commit(); paintSheet(); return;
+  }
+  if (act === "game") { sheetView = "game"; sheet.classList.remove("wide"); paintSheet(); return; }
   if (act === "lock") {
     prefs.wakeLock = b.dataset.v === "on";
     save();
