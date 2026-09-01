@@ -607,6 +607,30 @@
       </table>
     </div>
 
+    <h3>30 Aug 2026 &middot; second session, score entry under real hands</h3>
+    <p>Observations only. Solutions are open — several of these have more than one plausible answer and at least one has none.</p>
+
+    <h4>Entry controls are too small</h4>
+    <p>The <em>buttons</em> are the right size; the <strong>text on them is not</strong>. Reported against the &minus;10 / &minus;5 / &minus;1 / +1 / +5 / +10 pad specifically. The keypad digits are smaller again.</p>
+
+    <h4>The confirm is next to a digit</h4>
+    <p>Players reached for the tick and hit <strong>3</strong>. Both sit at the top right, one row apart. This is a keypad-only fault — the pad has no digit in that corner.</p>
+
+    <h4>Undo and Clear are not distinguishable</h4>
+    <p>Players expected Undo to do what Clear does. They sit side by side, look identical, and operate at different scopes: Clear zeroes the pending entry, Undo removes a score already committed.</p>
+
+    <h4>The numbers in the panel are confusing</h4>
+    <p>The panel shows the pending delta and the total it would produce; the tab behind shows the total before it. Two totals visible at once, one of them hypothetical.</p>
+
+    <h4>Players asked whether two people can enter at once</h4>
+    <p>One panel at a time is a deliberate limit, not an oversight, but it was noticed. Worth noting the geometry: a panel is 370 &times; 340, so two open at once cannot fit on a phone without overlapping. It is an iPad-shaped feature at best.</p>
+
+    <h4>A player cannot edit themselves from their own tab</h4>
+    <p>Name, colour and emoji are only reachable from the players sheet in the centre, which is upside down for half the table. This collides with the rule that rotated surfaces take no native inputs: a colour picker is system UI and survives rotation, but a text field for a name does not.</p>
+
+    <h4>Emoji entry is character entry</h4>
+    <p>The field accepts any character, which was the intent, but it gives no help choosing an emoji and no indication that an emoji is what it wants. <strong>There is no way to force the emoji keyboard</strong> — no <code>inputmode</code> value for it, and no equivalent on iOS or Android. Any answer has to be a picker we draw ourselves.</p>
+
     <h3>Responses under consideration</h3>
     <p>None of these are committed. They are what the findings point at.</p>
     <ul>
