@@ -293,18 +293,25 @@
     border: 0; border-radius: 9px; background: rgba(255,255,255,.14); color: #fff; cursor: pointer;
   }
   .pgrid button[aria-pressed="true"] { outline: 3px solid #fff; outline-offset: -3px; }
-  /* Colour is how a player finds their own tab from across the table, so the
-     grid will not hand out one already in use. Taken colours stay in place,
-     dimmed rather than removed, so it does not reshuffle between visits. The
-     centre sheet's freeform picker is still free to collide, the same escape
-     hatch the freeform emoji field is — deliberate, and beside it. */
-  /* Struck through, not merely dimmed. A faded swatch on a coloured panel
-     just reads as a paler colour — which is to say, as a choice. */
-  .pgrid.colour button:disabled {
-    cursor: default; opacity: .55;
-    background-image: linear-gradient(135deg, transparent calc(50% - 2px),
-      rgba(0,0,0,.72) calc(50% - 2px), rgba(0,0,0,.72) calc(50% + 2px), transparent calc(50% + 2px));
+  /* The full spectrum, for when sixteen is not the right sixteen. This is
+     the one native control the panel allows, and it is allowed because it
+     does not break the way a text field does: iOS draws it as its own sheet,
+     untouched by the panel's transform. It still opens in DEVICE orientation
+     though, so for the player across the table it arrives upside down. Hence
+     the split — the grid faces you and is one tap, and this is the escape
+     hatch you take knowingly. */
+  .pmore {
+    display: flex; align-items: center; gap: 10px; flex: none; cursor: pointer;
+    background: rgba(0,0,0,.26); border-radius: 9px; padding: 6px 10px;
+    font-size: 13px; font-weight: 700;
   }
+  .pmore input {
+    width: 40px; height: 30px; flex: none; padding: 0; cursor: pointer;
+    border: 0; border-radius: 7px; background: none; -webkit-appearance: none; appearance: none;
+  }
+  .pmore input::-webkit-color-swatch-wrapper { padding: 0; }
+  .pmore input::-webkit-color-swatch { border: 0; border-radius: 7px; }
+  .tab.size-large .pmore { font-size: 15px; }
   .tab.size-large .pgrid button { font-size: 30px; }
   .tab.size-large .idnav button { font-size: 15px; }
 
@@ -503,7 +510,7 @@ const STORE = "keepingtabs.state";
    its own build. Not a commit hash: a commit cannot contain its own hash,
    and amending one in only ever leaves it pointing at the commit before.
    The commit message names the build, so `git log --grep` maps it back. */
-const BUILD = "0901-01";
+const BUILD = "0901-02";
 
 /* Whether this context can persist at all. Private mode, a data: URL and
    a full quota all throw, and the app has to keep working regardless. */
@@ -1101,12 +1108,18 @@ function paintEmojiGrid(p) {
 }
 
 function paintColourGrid(p) {
-  const taken = new Set(players.filter(x => x.id !== p.id).map(x => x.color));
+  /* Duplicates allowed, same as emoji. Colour is how a player finds their
+     own tab, but whether that matters is the table's call and not ours —
+     teammates may well want to match, and a rule that second-guesses the
+     people at the table is worse than a table that sorts itself out. */
   return '<div class="pgrid colour">' +
-    COLORS.map(c => '<button data-pc="' + c + '" style="background-color:' + c + '"' +
+    COLORS.map(c => '<button data-pc="' + c + '" style="background:' + c + '"' +
       ' aria-label="' + c + '"' +
-      (c === p.color ? ' aria-pressed="true"' : "") +
-      (taken.has(c) ? " disabled" : "") + "></button>").join("") + "</div>";
+      (c === p.color ? ' aria-pressed="true"' : "") + "></button>").join("") + "</div>" +
+    '<label class="pmore">' +
+      '<input type="color" data-pcmore value="' + p.color + '" aria-label="More colours">' +
+      "<span>More colours\u2026</span>" +
+    "</label>";
 }
 
 /* Emoji and colour apply on the tap and stay put: the panel IS the colour,
@@ -1270,6 +1283,25 @@ stage.addEventListener("click", e => {
     if (a === "clear") { entry = ""; layout(false); }
     if (a === "mode")  { p.mode = p.mode === "keys" ? "pad" : "keys"; save(); layout(false); }
   }
+});
+
+/* type=color streams input events for the whole drag. Repainting the panel
+   would tear the very input the picker is attached to out of the document,
+   so the tab is poked while dragging and committed once on change — the same
+   bargain the sheet's picker makes. */
+stage.addEventListener("input", e => {
+  if (!e.target.matches("[data-pcmore]") || !openId) return;
+  const p = players.find(x => x.id === openId);
+  if (!p) return;
+  p.color = e.target.value;
+  p.el.style.background = p.color;
+});
+stage.addEventListener("change", e => {
+  if (!e.target.matches("[data-pcmore]") || !openId) return;
+  const p = players.find(x => x.id === openId);
+  if (!p) return;
+  p.color = e.target.value;
+  commit();
 });
 
 scrim.addEventListener("click", () => { closePanel(); closeSheet(); });
