@@ -232,11 +232,14 @@
   .prow .btn2.ok { background: rgba(255,255,255,.34); font-size: 26px; font-weight: 700; }
 
   /* Per-player type size, because hands differ around one table. */
-  .tab.size-large .pad button    { font-size: 32px; }
-  .tab.size-large .keys button   { font-size: 34px; }
-  .tab.size-large .prow .btn2    { font-size: 17px; }
-  .tab.size-large .prow .btn2.ok { font-size: 30px; }
-  .tab.size-large .panel .ptot   { font-size: 36px; }
+  .tab.size-large .pad button    { font-size: 34px; }
+  .tab.size-large .keys button   { font-size: 36px; }
+  .tab.size-large .prow .btn2    { font-size: 17px; min-height: 62px; }
+  .tab.size-large .prow .btn2.ok { font-size: 32px; }
+  .tab.size-large .panel .ptot   { font-size: 38px; }
+  .tab.size-large .panel .pname  { font-size: 20px; }
+  .tab.size-large .kbd button    { font-size: 24px; }
+  .tab.size-large .nameline      { font-size: 28px; }
   .hist { font-size: 12px; color: rgba(255,255,255,.72); font-variant-numeric: tabular-nums;
           white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: left; min-height: 1.3em; }
 
@@ -460,7 +463,7 @@ const STORE = "keepingtabs.state";
    its own build. Not a commit hash: a commit cannot contain its own hash,
    and amending one in only ever leaves it pointing at the commit before.
    The commit message names the build, so `git log --grep` maps it back. */
-const BUILD = "0830-15";
+const BUILD = "0830-16";
 
 /* Whether this context can persist at all. Private mode, a data: URL and
    a full quota all throw, and the app has to keep working regardless. */
@@ -853,25 +856,29 @@ function spillOverfullEdges(rect) {
   }
 }
 
-/* Panel size: big enough for the pad, clamped to its edge and to the
-   screen so it can never run off either. */
-/* An open panel is modal — the scrim covers everything else — so it is
-   not bound by the corner reservation that keeps tabs apart, and it may
-   reach a little past the opposite edge's tabs. */
-/* 370 x 340 is the size a panel comes out at on the short edge of an
-   iPhone, and it is the target everywhere: a bigger screen gets the same
-   panel, not a bigger one. Less is fine when the space is not there. */
-const PANEL_INSET     = 16;  // breathing room at each end of the edge
-const PANEL_MAX_LEN   = 370;
-const PANEL_MAX_DEPTH = 340;
-const PANEL_RESERVE   = 64;  // left clear on the far side
+/* An open panel is modal — the scrim covers everything else — so it is not
+   bound by the corner reservation that keeps tabs apart, and it may reach
+   past the opposite edge's tabs. Normal is 370 x 340, the size it comes out
+   at on the short edge of an iPhone, and the target everywhere: a bigger
+   screen gets the same panel, not a bigger one.
 
-function panelSize(edge, rect) {
+   Large is NOT a font setting. Bigger type in the same box only buys bigger
+   glyphs on the same buttons, and the play-test asked for bigger buttons. So
+   the panel itself grows — less inset at the ends, a higher cap, less held
+   back on the far side — and since the grids flex, every pixel gained lands
+   on the keys. */
+const PANEL = {
+  normal: { inset: 16, maxLen: 370, maxDepth: 340, reserve: 64 },
+  large:  { inset: 8,  maxLen: 430, maxDepth: 410, reserve: 28 }
+};
+
+function panelSize(edge, rect, size) {
+  const cfg = PANEL[size === "large" ? "large" : "normal"];
   const v = viewport();
   const full = edgeRange(edge, rect).length;
-  const len = Math.max(MIN_LEN, Math.min(full - PANEL_INSET * 2, PANEL_MAX_LEN));
+  const len = Math.max(MIN_LEN, Math.min(full - cfg.inset * 2, cfg.maxLen));
   const across = (edge === "top" || edge === "bottom") ? v.h : v.w;
-  const depth = Math.max(DEPTH, Math.min(PANEL_MAX_DEPTH, across - PANEL_RESERVE)) + bleedFor(edge);
+  const depth = Math.max(DEPTH, Math.min(cfg.maxDepth, across - cfg.reserve)) + bleedFor(edge);
   return { len: len, depth: depth };
 }
 
@@ -897,7 +904,7 @@ function render(rect) {
     const el = p.el;
     const open = p.id === openId;
     const bleed = bleedFor(p.edge);
-    const size = open ? panelSize(p.edge, rect) : { len: p._len, depth: edgeDepth(p.edge) };
+    const size = open ? panelSize(p.edge, rect, p.textSize) : { len: p._len, depth: edgeDepth(p.edge) };
 
     let along = p._along;
     if (open) {
