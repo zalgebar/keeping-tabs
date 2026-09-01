@@ -876,6 +876,11 @@
     <p>Star rather than laurel: a laurel wreath at 14px collapses into a ring of squiggles, while a star holds its silhouette at any size — which is why star shapes became the standard for ratings in the first place.</p>
     <p>Worth watching in M3: a visible leader can encourage pile-on in games where that matters. If play testing says it makes games worse, it becomes a preference — but not before, and not by default.</p>
 
+    <h3>The panel edits a value, not a delta</h3>
+    <p>A player's panel opens holding <strong>their score for this round</strong>, and every control acts on that one number: digits type it, backspace shortens it, Clear zeroes it, the pad nudges it up and down. Confirm records the difference against whatever was already banked.</p>
+    <p>That distinction matters more than it sounds. A panel that accumulates modifiers cannot correct itself — enter 5 when you meant 3 and the only remedies are a compensating &minus;2 or a global undo, neither of which is what a person reaching for their own tab expects. Editing a value makes the correction the same gesture as the original entry.</p>
+    <p>The log is unaffected. It stays an append-only list of deltas, so totals, rounds, undo and history all keep working; correcting 5 to 3 simply records a &minus;2. The value is what the player sees, the delta is what the app stores.</p>
+
     <h3>The detail panel is the tab, grown</h3>
     <p>Because tabs already protrude inward, the panel doesn't need to be a separate surface sliding over the top. Tapping a tab <em>grows it further inward</em> — same anchor, same edge, same rotation, just more depth. One continuous animation from a 72px tab to a panel deep enough to hold controls, and closing it retracts back to a tab.</p>
     <p>That keeps the person entering their score at their own side of the table, never reaching across or reading upside down, and it means there is no moment where the player loses track of which surface is theirs. The expanded tab holds:</p>

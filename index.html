@@ -193,6 +193,9 @@
   }
   .panel .ptot { font-size: 32px; font-weight: 700; letter-spacing: -.02em;
                  font-variant-numeric: tabular-nums; line-height: 1; }
+  /* Unsaved edit. The number itself carries the state, so there is no
+     second figure to read. */
+  .panel .ptot.edited { color: #FFD98A; }
   /* The pending delta, shown the way a tab shows round-then-total. */
   .panel .pend { font-size: 17px; font-weight: 600; opacity: .85; font-variant-numeric: tabular-nums; }
   .panel .x.ok { background: rgba(255,255,255,.30); font-weight: 700; }
@@ -446,7 +449,7 @@ const STORE = "keepingtabs.state";
    its own build. Not a commit hash: a commit cannot contain its own hash,
    and amending one in only ever leaves it pointing at the commit before.
    The commit message names the build, so `git log --grep` maps it back. */
-const BUILD = "0830-13";
+const BUILD = "0830-14";
 
 /* Whether this context can persist at all. Private mode, a data: URL and
    a full quota all throw, and the app has to keep working regardless. */
@@ -481,7 +484,7 @@ let log = [];                    // { id, ts, type:"delta", playerId, value }
 let arrangeMode = false;
 let prefs = { ambient: true, wakeLock: true, winCondition: "high" };
 let openId = null;               // player whose panel is expanded
-let entry = "";                  // pending delta, as a string, for whichever mode is open
+let entry = "";                  // THIS ROUND'S SCORE being edited, as a string ("" is 0)
 let panelView = "score";         // score | name
 let nameBuf = "";
 let shiftOn = false;
@@ -955,15 +958,18 @@ function rebuildTabs() {
 
 function openPanel(p) {
   openId = p.id;
-  entry = "";                       // nothing pending until something is tapped
+  /* Opens holding what is already banked this round, so the first thing
+     you see is your own number rather than an empty field. */
+  const banked = roundScores[p.id] || 0;
+  entry = banked ? String(banked) : "";
   panelView = "score"; nameBuf = ""; shiftOn = false;
   if (p.mode !== "keys" && p.mode !== "pad") p.mode = "pad";
   scrim.classList.add("on");
   layout(false);
 }
 
-/* Closing without confirming discards the pending delta. Nothing has
-   reached the log yet, so there is nothing to roll back. */
+/* Closing without confirming discards the edit. Nothing has reached the
+   log yet, so there is nothing to roll back. */
 function closePanel() {
   openId = null;
   entry = ""; panelView = "score"; nameBuf = ""; shiftOn = false;
@@ -971,20 +977,24 @@ function closePanel() {
   layout(false);
 }
 
-/* One log entry per confirmed edit, however many taps built it. */
+/* One log entry per confirmed edit, recording the difference between the
+   number on screen and what was already banked this round. */
 function confirmPanel(p) {
-  const pend = pendingOf();
+  const delta = editedFrom(p);
   entry = "";
-  if (pend) score(p, pend); else layout(false);
+  if (delta) score(p, delta); else layout(false);
   closePanel();
 }
 
-/* One header in both modes: emoji, name, pending, total, confirm. The
-   total never moves, so switching modes does not shift what you are
-   reading. `entry` is the pending delta as a string and is the ONLY
-   thing the pad and the keypad both write to — pad buttons add to it,
-   digits append to it, so switching modes needs no conversion. */
-function pendingOf() { return parseInt(entry, 10) || 0; }
+/* The panel edits a VALUE — this player's score for this round — rather
+   than accumulating a modifier onto one. It opens holding whatever they
+   have already banked this round, and every control acts on that number:
+   digits type it, backspace shortens it, Clear zeroes it, the pad nudges
+   it. Confirm records the difference against what was banked, so the log
+   stays a list of deltas and undo, totals and history are untouched. */
+function enteredValue() { return parseInt(entry, 10) || 0; }
+function bankedThisRound(p) { return roundScores[p.id] || 0; }
+function editedFrom(p) { return enteredValue() - bankedThisRound(p); }
 
 const LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
 
@@ -1019,28 +1029,23 @@ function paintPanel(p) {
   const box = p.el.querySelector(".panel");
   if (panelView === "name") return paintName(p, box);
   const keys = p.mode === "keys";
-  const pend = pendingOf();
-  /* This round only. The game total belongs on the tab and nowhere else —
-     showing both here meant two totals at once, one of them hypothetical. */
-  const shown = (roundScores[p.id] || 0) + pend;
+  /* This round only. The game total belongs on the tab and nowhere else. */
+  const shown = enteredValue();
+  const changed = editedFrom(p) !== 0;
 
   const header =
     '<div class="ptop">' +
       '<span style="font-size:22px">' + p.emoji + '</span>' +
       '<span class="pname tap" data-act="editname">' + esc(p.name) + '</span>' +
-      (entry === ""
-        ? ""
-        : '<span class="pend">' +
-            (entry === "-" ? "\u2212" : (pend > 0 ? "+" + pend : String(pend))) +
-          '</span>') +
       '<span class="ptotwrap"><span class="plab">round</span>' +
-        '<span class="ptot">' + shown + '</span></span>' +
+        '<span class="ptot' + (changed ? " edited" : "") + '">' +
+          (entry === "-" ? "\u2212" : shown) + '</span></span>' +
     '</div>';
 
   const foot =
     '<div class="prow">' +
       '<button class="btn2" data-act="mode">' + (keys ? "\u00b1 Pad" : "Custom") + '</button>' +
-      '<button class="btn2" data-act="clear"' + (entry === "" ? " disabled" : "") + '>Clear</button>' +
+      '<button class="btn2" data-act="clear"' + (shown === 0 ? " disabled" : "") + '>Clear</button>' +
       '<button class="btn2 ok" data-act="ok" aria-label="Save and close">\u2713</button>' +
     '</div>';
 
@@ -1102,10 +1107,9 @@ stage.addEventListener("click", e => {
   const d   = e.target.closest("[data-d]");
   const k   = e.target.closest("[data-k]");
 
-  /* Pad and keypad write to the same buffer: one adds, the other appends. */
+  /* Pad and keypad edit the same number: one nudges it, the other types it. */
   if (d) {
-    entry = String(pendingOf() + parseInt(d.dataset.d, 10));
-    if (entry === "0") entry = "";
+    entry = String(enteredValue() + parseInt(d.dataset.d, 10));
     layout(false);
     return;
   }
