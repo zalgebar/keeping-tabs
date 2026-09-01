@@ -15,7 +15,7 @@
 <title>Keeping Tabs</title>
 <style>
   /* ============================================================
-     M2 - Scoring core
+     M3 - Rounds
      Players, the event log as source of truth, the adjustment pad,
      global undo, localStorage autosave.
 
@@ -155,8 +155,17 @@
   .tab.t-emoji .who { display: none; }
   .tab.t-emoji .emoji { font-size: 24px; }
 
+  /* Two markers, matched to signal strength. The star is the more
+     visible mark and carries the more important signal: the lead. The bar
+     is quieter and takes the secondary one, the last round's winner.
+     Opposite edges of the tab, so one player can hold both. */
   .tab .star { position: absolute; bottom: calc(2px + var(--bleed, 0px)); font-size: 13px; line-height: 1; display: none; color: #FFD98A; }
   .tab.leading .star { display: block; }
+  .tab .bar { position: absolute; top: 3px; left: 14%; right: 14%; height: 4px;
+              border-radius: 2px; background: #FFD98A; display: none; }
+  .tab.won-round .bar { display: block; }
+  .tab .rnd { font-size: 16px; opacity: .78; }
+  .tab.t-emoji .rnd { display: none; }
 
   /* ---------------- expanded panel (the tab, grown) ---------------- */
 
@@ -258,6 +267,17 @@
     user-select: text; -webkit-user-select: text;
   }
   .prow2 input:focus { outline: none; border-bottom-color: var(--accent); }
+  .gridwrap { overflow: auto; max-height: 46vh; border: 1px solid var(--rule); border-radius: 9px; }
+  table.rounds { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+  table.rounds th, table.rounds td {
+    padding: 6px 8px; text-align: right; font-size: 13px; white-space: nowrap;
+    border-bottom: 1px solid var(--rule);
+  }
+  table.rounds th { position: sticky; top: 0; background: #232A2D; font-size: 15px; }
+  table.rounds .rn { text-align: left; color: var(--ink-dim); font-size: 12px; }
+  table.rounds tr.live td { color: var(--accent); }
+  table.rounds tr.tot td { font-weight: 700; border-bottom: 0; }
+  table.rounds tr.tot { background: #232A2D; }
   .setting { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 2px; }
   .setting span { font-size: 13px; color: var(--ink-dim); }
   .setting .seg { flex: 0 0 auto; width: 132px; }
@@ -281,8 +301,10 @@
   <div class="hub">
     <h1>Keeping Tabs</h1>
     <div class="lead" id="lead"></div>
+    <button class="btn primary" id="endRound">End round</button>
     <div class="btns">
       <button class="btn" id="undo">Undo</button>
+      <button class="btn" id="rounds">Rounds</button>
       <button class="btn" id="manage">Players</button>
     </div>
     <div class="seg" id="arrange">
@@ -324,7 +346,7 @@ const STORE = "keepingtabs.state";
    its own build. Not a commit hash: a commit cannot contain its own hash,
    and amending one in only ever leaves it pointing at the commit before.
    The commit message names the build, so `git log --grep` maps it back. */
-const BUILD = "0830-7";
+const BUILD = "0830-8";
 
 /* Whether this context can persist at all. Private mode, a data: URL and
    a full quota all throw, and the app has to keep working regardless. */
@@ -357,11 +379,12 @@ const COLORS = ["#B3591F","#43489B","#1E5C46","#A02F2C","#6B4C9A","#0F6E77",
 let players = [];
 let log = [];                    // { id, ts, type:"delta", playerId, value }
 let arrangeMode = false;
-let prefs = { ambient: true };
+let prefs = { ambient: true, wakeLock: true, winCondition: "high" };
 let openId = null;               // player whose panel is expanded
 let entry = "";                  // pending delta, as a string, for whichever mode is open
 let safe = { top: 0, right: 0, bottom: 0, left: 0 };
 let totals = {};
+let roundScores = {};
 
 const stage  = document.getElementById("stage");
 const centre = document.getElementById("centre");
@@ -377,12 +400,45 @@ const esc = s => String(s).replace(/[&<>"']/g, c =>
 
 /* Totals are never stored. If they ever disagreed with the log the log
    would win, so there is nothing to disagree with. */
+/* The log holds two kinds of entry: a `delta` for a score change and a
+   `round` marker for End Round. A player's round score is simply the
+   deltas after the last marker, so nothing about rounds is stored twice
+   and undoing a marker un-ends the round for free. */
+function lastMarker() {
+  for (let i = log.length - 1; i >= 0; i--) if (log[i].type === "round") return i;
+  return -1;
+}
+function roundNo() { return log.filter(e => e.type === "round").length + 1; }
+
 function recompute() {
-  totals = {};
-  for (const p of players) totals[p.id] = 0;
+  totals = {}; roundScores = {};
+  for (const p of players) { totals[p.id] = 0; roundScores[p.id] = 0; }
+  const from = lastMarker() + 1;
+  log.forEach((e, i) => {
+    if (e.type !== "delta" || totals[e.playerId] === undefined) return;
+    totals[e.playerId] += e.value;
+    if (i >= from) roundScores[e.playerId] += e.value;
+  });
+}
+
+/* Completed rounds, rebuilt from the markers. */
+function roundTable() {
+  const out = []; let acc = {}; let n = 1;
   for (const e of log) {
-    if (e.type === "delta" && totals[e.playerId] !== undefined) totals[e.playerId] += e.value;
+    if (e.type === "delta") acc[e.playerId] = (acc[e.playerId] || 0) + e.value;
+    else if (e.type === "round") { out.push({ n: n++, scores: acc }); acc = {}; }
   }
+  return out;
+}
+
+/* Highest or lowest, depending on the setting. Returns null when every
+   player is level — marking all sixteen tells nobody anything. */
+function bestOf(map) {
+  if (players.length < 2) return null;
+  const vals = players.map(pl => map[pl.id] || 0);
+  const hi = Math.max.apply(null, vals), lo = Math.min.apply(null, vals);
+  if (hi === lo) return null;
+  return prefs.winCondition === "low" ? lo : hi;
 }
 
 function save() {
@@ -409,10 +465,39 @@ function load() {
     if (!d || d.version !== 1 || !Array.isArray(d.players) || !d.players.length) return false;
     players = d.players;
     log = Array.isArray(d.log) ? d.log : [];
-    if (d.prefs && typeof d.prefs.ambient === "boolean") prefs.ambient = d.prefs.ambient;
+    if (d.prefs) {
+      if (typeof d.prefs.ambient === "boolean") prefs.ambient = d.prefs.ambient;
+      if (typeof d.prefs.wakeLock === "boolean") prefs.wakeLock = d.prefs.wakeLock;
+      if (d.prefs.winCondition === "low" || d.prefs.winCondition === "high") prefs.winCondition = d.prefs.winCondition;
+    }
     return true;
   } catch (e) { return false; }
 }
+
+/* Screen Wake Lock. A device sits on a table for an hour; nothing kills
+   the experience faster than the screen sleeping every thirty seconds.
+   It drops silently on tab switch, so it is re-acquired on visibility. */
+let wakeLock = null;
+let wakeLockState = "off";
+
+async function acquireWakeLock() {
+  if (!prefs.wakeLock) { wakeLockState = "off"; return; }
+  if (!("wakeLock" in navigator)) { wakeLockState = "unsupported"; return; }
+  if (wakeLock) return;
+  try {
+    wakeLock = await navigator.wakeLock.request("screen");
+    wakeLockState = "held";
+    wakeLock.addEventListener("release", () => { wakeLock = null; wakeLockState = "released"; });
+  } catch (e) { wakeLock = null; wakeLockState = "denied"; }
+  paintHub();
+}
+function dropWakeLock() {
+  if (wakeLock) { wakeLock.release().catch(() => {}); wakeLock = null; }
+  wakeLockState = prefs.wakeLock ? "released" : "off";
+}
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") acquireWakeLock(); else dropWakeLock();
+});
 
 let ambientTimer = null;
 
@@ -421,7 +506,8 @@ function scheduleAmbient() {
   if (!prefs.ambient) { document.body.classList.remove("ambient"); return; }
   ambientTimer = setTimeout(function () {
     /* Something open is not idle. */
-    if (openId || sheet.classList.contains("on")) { scheduleAmbient(); return; }
+    if (openId || sheet.classList.contains("on")) { scheduleAmbient();
+acquireWakeLock(); return; }
     document.body.classList.add("ambient");
   }, AMBIENT_MS);
 }
@@ -429,6 +515,8 @@ function scheduleAmbient() {
 function wake() {
   document.body.classList.remove("ambient");
   scheduleAmbient();
+acquireWakeLock();
+  if (prefs.wakeLock && !wakeLock) acquireWakeLock();   // Safari wants a gesture
 }
 
 /* Capture, so a tap wakes the tabs even when it lands on a control that
@@ -664,17 +752,23 @@ function panelSize(edge, rect) {
   return { len: len, depth: depth };
 }
 
+/* Thresholds allow for the round number being back on the second row.
+   Below t-emoji only the emoji and total survive. */
 function tierFor(len) {
-  if (len >= 150) return "";
+  if (len >= 150) return "";           // emoji + full name / round + total
+  if (len >= 108) return "t-first";    // emoji + first name / round + total
   if (len >= 76)  return "t-first";
-  return "t-emoji";
+  return "t-emoji";                    // emoji / total
 }
 
 function render(rect) {
-  const scores = players.map(p => totals[p.id] || 0);
-  const best = scores.length ? Math.max.apply(null, scores) : 0;
-  const scored = log.some(e => e.type === "delta");
-  const allSame = players.length > 1 && scores.every(s => s === best);
+  const leadAt = bestOf(totals);
+  const table = roundTable();
+  const lastRound = table.length ? table[table.length - 1].scores : null;
+  const hotAt = lastRound ? bestOf(lastRound) : null;
+  /* Round scores only mean something once a round has been closed —
+     before that they are identical to the total. */
+  const showRound = table.length > 0;
 
   for (const p of players) {
     const el = p.el;
@@ -707,11 +801,15 @@ function render(rect) {
     el.className = "tab " + tierFor(size.len) +
                    (p.lifted ? " lifted" : (sameEdge ? " settling" : "")) +
                    (open ? " open" : "") +
-                   (scored && !allSame && (totals[p.id] || 0) === best ? " leading" : "");
+                   (leadAt !== null && (totals[p.id] || 0) === leadAt ? " leading" : "") +
+                   (hotAt !== null && (lastRound[p.id] || 0) === hotAt ? " won-round" : "");
     p._renderedEdge = p.edge;
 
     el.querySelector(".who").textContent = size.len >= 150 ? p.name : p.name.split(" ")[0];
     el.querySelector(".tot").textContent = totals[p.id] || 0;
+    const rnd = el.querySelector(".rnd");
+    rnd.textContent = showRound ? (roundScores[p.id] || 0) : "";
+    rnd.style.display = showRound ? "" : "none";
     if (open) paintPanel(p);
   }
 
@@ -729,8 +827,9 @@ function buildTab(p) {
   el.innerHTML =
     '<div class="compact">' +
       '<span class="name"><span class="emoji"></span><span class="who"></span></span>' +
-      '<span class="nums"><span class="tot"></span></span>' +
+      '<span class="nums"><span class="rnd"></span><span class="tot"></span></span>' +
       '<span class="star">★</span>' +
+      '<span class="bar"></span>' +
     '</div>' +
     '<div class="panel"></div>';
   el.querySelector(".emoji").textContent = p.emoji;
@@ -833,7 +932,20 @@ function score(p, delta) {
   commit();
 }
 
+/* End Round drops a marker. Round scores become the deltas after it,
+   which is to say zero, and the counter moves on. */
+function endRound() {
+  if (!log.some(e => e.type === "delta")) return;      // nothing to end
+  log.push({ id: uid(), ts: Date.now(), type: "round", n: roundNo() });
+  commit();
+}
+
 function undoLast(playerId) {
+  /* Global undo takes back whatever happened last, End Round included.
+     Per-player undo only ever touches that player's own scores. */
+  if (!playerId && log.length && log[log.length - 1].type === "round") {
+    log.pop(); commit(); return true;
+  }
   for (let i = log.length - 1; i >= 0; i--) {
     if (log[i].type === "delta" && (!playerId || log[i].playerId === playerId)) {
       log.splice(i, 1);
@@ -958,20 +1070,24 @@ function projectToEdge(x, y, rect) {
 function paintHub() {
   const lead = document.getElementById("lead");
   const scored = log.some(e => e.type === "delta");
-  if (!players.length) {
-    lead.innerHTML = "No players yet.<br>Add a few to start.";
-  } else if (!scored) {
-    lead.innerHTML = players.length + " players &middot; no score yet";
-  } else {
-    const best = Math.max.apply(null, players.map(p => totals[p.id] || 0));
-    const tied = players.filter(p => (totals[p.id] || 0) === best);
-    lead.innerHTML = tied.length === players.length
-      ? "All tied on <b>" + best + "</b>"
-      : (tied.length > 1
-          ? tied.length + " tied on <b>" + best + "</b>"
-          : "<b>" + esc(tied[0].name.split(" ")[0]) + "</b> leads on <b>" + best + "</b>");
+  const n = roundNo();
+  const at = bestOf(totals);
+  const verb = prefs.winCondition === "low" ? "lowest on" : "leads on";
+  let line;
+  if (!players.length)      line = "No players yet.<br>Add a few to start.";
+  else if (!scored)         line = players.length + " players &middot; no score yet";
+  else if (at === null)     line = "All level";
+  else {
+    const tied = players.filter(p => (totals[p.id] || 0) === at);
+    line = tied.length > 1
+      ? tied.length + " tied on <b>" + at + "</b>"
+      : "<b>" + esc(tied[0].name.split(" ")[0]) + "</b> " + verb + " <b>" + at + "</b>";
   }
-  document.getElementById("undo").disabled = !log.some(e => e.type === "delta");
+  lead.innerHTML = "Round <b>" + n + "</b><br>" + line;
+
+  document.getElementById("undo").disabled = !log.length;
+  document.getElementById("endRound").disabled = !scored ||
+    log.length === 0 || log[log.length - 1].type === "round";
   document.getElementById("diagToggle").textContent =
     BUILD + (storageOk ? "" : "  \u00b7 no storage");
   paintDiag();
@@ -1003,6 +1119,8 @@ document.getElementById("diagToggle").addEventListener("click", () => {
 });
 
 document.getElementById("undo").addEventListener("click", () => undoLast(null));
+document.getElementById("endRound").addEventListener("click", endRound);
+document.getElementById("rounds").addEventListener("click", () => openSheet("rounds"));
 document.getElementById("arrange").addEventListener("click", e => {
   const b = e.target.closest("button"); if (!b) return;
   arrangeMode = b.dataset.arrange === "on";
@@ -1014,10 +1132,37 @@ document.getElementById("arrange").addEventListener("click", e => {
    Players sheet - centre, unrotated, native inputs are fine here
    ============================================================ */
 
-function openSheet() { sheet.classList.add("on"); scrim.classList.add("on"); paintSheet(); }
+let sheetView = "players";
+function openSheet(view) {
+  sheetView = view || "players";
+  sheet.classList.add("on"); scrim.classList.add("on"); paintSheet();
+}
 function closeSheet() { sheet.classList.remove("on"); scrim.classList.remove("on"); }
 
+function paintRounds() {
+  const table = roundTable();
+  const head = "<tr><th>#</th>" + players.map(pl =>
+    '<th title="' + esc(pl.name) + '">' + pl.emoji + "</th>").join("") + "</tr>";
+  const body = table.map(r => '<tr><td class="rn">' + r.n + "</td>" +
+      players.map(pl => "<td>" + (r.scores[pl.id] || 0) + "</td>").join("") + "</tr>").join("");
+  const live = '<tr class="live"><td class="rn">' + roundNo() + "</td>" +
+      players.map(pl => "<td>" + (roundScores[pl.id] || 0) + "</td>").join("") + "</tr>";
+  const sum = '<tr class="tot"><td class="rn">&Sigma;</td>' +
+      players.map(pl => "<td>" + (totals[pl.id] || 0) + "</td>").join("") + "</tr>";
+
+  sheet.innerHTML =
+    "<h2>Rounds</h2>" +
+    (players.length
+      ? '<div class="gridwrap"><table class="rounds">' + head + body + live + sum + "</table></div>"
+      : '<div class="lead">No players yet.</div>') +
+    '<div class="btns">' +
+      '<button class="btn" data-act="players">Players</button>' +
+      '<button class="btn" data-act="done">Done</button>' +
+    "</div>";
+}
+
 function paintSheet() {
+  if (sheetView === "rounds") return paintRounds();
   const rows = players.map(p =>
     '<div class="prow2" data-id="' + p.id + '">' +
       '<input class="emo" data-act="emoji" value="' + esc(p.emoji) + '" ' +
@@ -1036,6 +1181,20 @@ function paintSheet() {
     '<div class="btns">' +
       '<button class="btn primary" data-act="add"' + (players.length >= MAX_PLAYERS ? " disabled" : "") + ">Add player</button>" +
       '<button class="btn" data-act="done">Done</button>' +
+    "</div>" +
+    '<div class="setting">' +
+      "<span>Winner</span>" +
+      '<div class="seg">' +
+        '<button data-act="win" data-v="high"' + (prefs.winCondition === "high" ? ' aria-pressed="true"' : "") + ">Highest</button>" +
+        '<button data-act="win" data-v="low"'  + (prefs.winCondition === "low"  ? ' aria-pressed="true"' : "") + ">Lowest</button>" +
+      "</div>" +
+    "</div>" +
+    '<div class="setting">' +
+      "<span>Keep screen awake</span>" +
+      '<div class="seg">' +
+        '<button data-act="lock" data-v="on"'  + (prefs.wakeLock ? ' aria-pressed="true"' : "") + ">On</button>" +
+        '<button data-act="lock" data-v="off"' + (prefs.wakeLock ? "" : ' aria-pressed="true"') + ">Off</button>" +
+      "</div>" +
     "</div>" +
     '<div class="setting">' +
       "<span>Dim when idle</span>" +
@@ -1061,6 +1220,15 @@ sheet.addEventListener("click", e => {
   if (act === "add")    { addPlayer(); rebuildTabs(); commit(); paintSheet(); return; }
   if (act === "done")   { closeSheet(); return; }
   if (act === "ambient") { prefs.ambient = b.dataset.v === "on"; save(); wake(); paintSheet(); return; }
+  if (act === "win")  { prefs.winCondition = b.dataset.v; save(); commit(); paintSheet(); return; }
+  if (act === "lock") {
+    prefs.wakeLock = b.dataset.v === "on";
+    save();
+    if (prefs.wakeLock) acquireWakeLock(); else dropWakeLock();
+    paintSheet();
+    return;
+  }
+  if (act === "players") { sheetView = "players"; paintSheet(); return; }
   if (act === "reset")  { log = []; commit(); paintSheet(); return; }
   if (act === "wipe") {
     players = []; log = [];
@@ -1143,6 +1311,7 @@ if (!load()) {
 rebuildTabs();
 commit();
 scheduleAmbient();
+acquireWakeLock();
 </script>
 </body>
 </html>
