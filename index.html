@@ -224,28 +224,34 @@
   .pad button:active { background: rgba(255,255,255,.34); }
   /* Confirm lives here, a full row away from the digits. Moving it to the
      other end of the header would not have helped: the fault is reach,
-     not eyesight, and both top corners are where thumbs already are. */
-  /* The panel enters a score; the hub remembers them. With no Undo here
+     not eyesight, and both top corners are where thumbs already are.
+     Which is why EVERY view puts it here — score, name, emoji, colour.
+     Confirm keeps one address in this app: bottom row, hard right. It
+     simply grows leftward in the views with less to sit beside it, so a
+     view with nothing else gets a full-width one.
+
+     The panel enters a score; the hub remembers them. With no Undo here
      there is nothing left for Clear to be confused with. */
-  .prow { display: grid; grid-template-columns: 1fr 1fr 1.5fr;
-          gap: 6px; align-items: stretch; flex: none; }
+  .prow { display: flex; gap: 6px; align-items: stretch; flex: none; }
   .prow .btn2 {
     font: inherit; font-size: 15px; padding: 6px 4px; min-height: 54px;
+    flex: 1 1 0; min-width: 0;
     border-radius: 9px; border: 0; cursor: pointer;
     background: rgba(0,0,0,.24); color: #fff;
   }
   .prow .btn2:disabled { opacity: .4; }
-  .prow .btn2.ok { background: rgba(255,255,255,.34); font-size: 26px; font-weight: 700; }
+  .prow .btn2.ok { background: rgba(255,255,255,.34); font-size: 26px; font-weight: 700;
+                   flex: 1.5 1 0; }
 
   /* Per-player type size, because hands differ around one table. */
-  .tab.size-large .pad button    { font-size: 34px; }
-  .tab.size-large .keys button   { font-size: 36px; }
-  .tab.size-large .prow .btn2    { font-size: 17px; min-height: 62px; }
-  .tab.size-large .prow .btn2.ok { font-size: 32px; }
-  .tab.size-large .panel .ptot   { font-size: 38px; }
-  .tab.size-large .panel .pname  { font-size: 20px; }
-  .tab.size-large .kbd button    { font-size: 24px; }
-  .tab.size-large .nameline      { font-size: 28px; }
+  .tab.size-large .pad button    { font-size: 42px; }
+  .tab.size-large .keys button   { font-size: 44px; }
+  .tab.size-large .prow .btn2    { font-size: 21px; min-height: 68px; }
+  .tab.size-large .prow .btn2.ok { font-size: 38px; }
+  .tab.size-large .panel .ptot   { font-size: 46px; }
+  .tab.size-large .panel .pname  { font-size: 24px; }
+  .tab.size-large .kbd button    { font-size: 30px; }
+  .tab.size-large .nameline      { font-size: 34px; }
   .hist { font-size: 12px; color: rgba(255,255,255,.72); font-variant-numeric: tabular-nums;
           white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: left; min-height: 1.3em; }
 
@@ -265,7 +271,9 @@
   }
   .kbd button.act { background: rgba(0,0,0,.26); font-size: 17px; }
   .kbd button.act[aria-pressed="true"] { background: rgba(255,255,255,.34); }
-  .kbd button.ok { background: rgba(255,255,255,.34); font-size: 24px; }
+  /* Confirm left this grid for the bottom row, so the space bar takes the
+     freed cell and the 6x5 stays exactly full. */
+  .kbd button[data-n="space"] { grid-column: span 2; }
   .nameline {
     font-size: 24px; font-weight: 700; text-align: left; line-height: 1.15;
     min-height: 1.2em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
@@ -284,13 +292,10 @@
   .idnav { display: flex; gap: 5px; flex: 1; min-width: 0; }
   .idnav button {
     font: inherit; font-size: 13px; font-weight: 700; line-height: 1; padding: 8px 10px;
+    min-height: 44px; flex: 1 1 0; min-width: 0;
     border: 0; border-radius: 8px; background: rgba(0,0,0,.26); color: #fff; cursor: pointer;
   }
   .idnav button[aria-pressed="true"] { background: rgba(255,255,255,.34); }
-  .idok {
-    font: inherit; font-size: 22px; line-height: 1; padding: 6px 14px; flex: none;
-    border: 0; border-radius: 8px; background: rgba(255,255,255,.34); color: #fff; cursor: pointer;
-  }
   .pgrid { display: grid; gap: 5px; flex: 1; min-height: 0; }
   .pgrid.emo    { grid-template-columns: repeat(6, 1fr); grid-auto-rows: minmax(0, 1fr); }
   .pgrid.colour { grid-template-columns: repeat(4, 1fr); grid-auto-rows: minmax(0, 1fr); }
@@ -317,9 +322,9 @@
   }
   .pmore input::-webkit-color-swatch-wrapper { padding: 0; }
   .pmore input::-webkit-color-swatch { border: 0; border-radius: 7px; }
-  .tab.size-large .pmore { font-size: 15px; }
-  .tab.size-large .pgrid button { font-size: 30px; }
-  .tab.size-large .idnav button { font-size: 15px; }
+  .tab.size-large .pmore { font-size: 18px; }
+  .tab.size-large .pgrid button { font-size: 36px; }
+  .tab.size-large .idnav button { font-size: 18px; }
 
   /* keypad - drawn, never a native input, because the panel is rotated */
   .keys { display: grid; grid-template-columns: repeat(3, 1fr);
@@ -454,10 +459,13 @@
     .tab, .tab.settling, #scrim { transition: none; }
   }
 
-  /* The panel is no longer one size, so neither is its type: 26px is right
-     in a 370pt box and lost in a 680pt one. Sized against the panel's own
-     short side, floored at what the fixed sizes above already were so a
-     phone is unchanged, and capped where glyphs stop earning their space.
+  /* Large's panel travels from 386pt on a phone to 680pt on an iPad, so its
+     type travels with it: a size that suits the small end is lost at the
+     large one. Sized against the panel's own short side, floored at the
+     fixed sizes above so the phone is exactly what those say, and capped
+     where glyphs stop earning their space. Small needs none of this — it is
+     one fixed 370 x 340 box everywhere, so its fixed sizes are already
+     right everywhere.
      Behind @supports because an unknown unit would void the whole
      declaration — without the guard, a browser without container queries
      would fall back past these to the browser default rather than to the
@@ -467,29 +475,17 @@
      declared later. That is exactly how .keys was missed the first time. */
   @supports (font-size: 1cqmin) {
     .panel { container-type: size; }
-    .pad button        { font-size: clamp(26px, 6.5cqmin, 46px); }
-    .keys button       { font-size: clamp(28px, 6cqmin, 44px); }
-    .kbd button        { font-size: clamp(21px, 4.4cqmin, 34px); }
-    .pgrid button      { font-size: clamp(26px, 5.6cqmin, 42px); }
-    .panel .ptot       { font-size: clamp(32px, 7cqmin, 50px); }
-    .panel .pname      { font-size: clamp(17px, 3.4cqmin, 26px); }
-    .nameline          { font-size: clamp(24px, 5cqmin, 38px); }
-    .prow .btn2        { font-size: clamp(15px, 3.2cqmin, 24px); }
-    .prow .btn2.ok     { font-size: clamp(26px, 5.6cqmin, 42px); }
-    .idnav button      { font-size: clamp(13px, 2.8cqmin, 21px); }
-    .pmore             { font-size: clamp(13px, 2.8cqmin, 21px); }
-
-    .tab.size-large .pad button    { font-size: clamp(34px, 7.5cqmin, 54px); }
-    .tab.size-large .keys button   { font-size: clamp(36px, 7cqmin, 52px); }
-    .tab.size-large .kbd button    { font-size: clamp(24px, 5cqmin, 40px); }
-    .tab.size-large .pgrid button  { font-size: clamp(30px, 6.4cqmin, 50px); }
-    .tab.size-large .panel .ptot   { font-size: clamp(38px, 8cqmin, 58px); }
-    .tab.size-large .panel .pname  { font-size: clamp(20px, 3.9cqmin, 30px); }
-    .tab.size-large .nameline      { font-size: clamp(28px, 5.7cqmin, 44px); }
-    .tab.size-large .prow .btn2    { font-size: clamp(17px, 3.7cqmin, 28px); }
-    .tab.size-large .prow .btn2.ok { font-size: clamp(32px, 6.4cqmin, 48px); }
-    .tab.size-large .idnav button  { font-size: clamp(15px, 3.2cqmin, 24px); }
-    .tab.size-large .pmore         { font-size: clamp(15px, 3.2cqmin, 24px); }
+    .tab.size-large .pad button    { font-size: clamp(42px, 8cqmin, 60px); }
+    .tab.size-large .keys button   { font-size: clamp(44px, 7.6cqmin, 58px); }
+    .tab.size-large .kbd button    { font-size: clamp(30px, 5.6cqmin, 44px); }
+    .tab.size-large .pgrid button  { font-size: clamp(36px, 7cqmin, 54px); }
+    .tab.size-large .panel .ptot   { font-size: clamp(46px, 8.6cqmin, 64px); }
+    .tab.size-large .panel .pname  { font-size: clamp(24px, 4.4cqmin, 34px); }
+    .tab.size-large .nameline      { font-size: clamp(34px, 6.4cqmin, 48px); }
+    .tab.size-large .prow .btn2    { font-size: clamp(21px, 4.2cqmin, 32px); }
+    .tab.size-large .prow .btn2.ok { font-size: clamp(38px, 7cqmin, 54px); }
+    .tab.size-large .idnav button  { font-size: clamp(18px, 3.6cqmin, 27px); }
+    .tab.size-large .pmore         { font-size: clamp(18px, 3.6cqmin, 27px); }
   }
   </style>
 </head>
@@ -554,7 +550,7 @@ const STORE = "keepingtabs.state";
    its own build. Not a commit hash: a commit cannot contain its own hash,
    and amending one in only ever leaves it pointing at the commit before.
    The commit message names the build, so `git log --grep` maps it back. */
-const BUILD = "0901-03";
+const BUILD = "0901-04";
 
 /* Whether this context can persist at all. Private mode, a data: URL and
    a full quota all throw, and the app has to keep working regardless. */
@@ -576,9 +572,21 @@ const ANIMALS = ["\u{1F98A}","\u{1F419}","\u{1F989}","\u{1F422}","\u{1F427}","\u
                  "\u{1F982}","\u{1F985}","\u{1F42A}","\u{1F98F}","\u{1F438}","\u{1F994}","\u{1F995}","\u{1F407}",
                  "\u{1F98E}","\u{1F41F}","\u{1F41C}","\u{1F986}"];
 
-const COLORS = ["#B3591F","#43489B","#1E5C46","#A02F2C","#6B4C9A","#0F6E77",
-                "#8A6D1F","#2F5FA8","#7A3B6B","#3E6B2A","#A34A2E","#245C86",
-                "#6E3A8C","#186B58","#8E4A1E","#4A4E8F"];
+/* Sixteen hues at full saturation. The old set was muted so the app would
+   sit quietly on a table, but that job belongs to the ambient dim now — it
+   desaturates on idle and wakes on touch, so the resting state can be loud
+   without the game having to look at it all evening. And not every table
+   finds the device distracting in the first place.
+
+   Each one is the LIGHTEST it can be while still clearing 4:1 against
+   white, because a tab carries its owner's name in white and colour must
+   not cost legibility. Hues are picked by eye, not by arithmetic: sixteen
+   even steps round the wheel crowds the greens and starves the purples,
+   since perceived hue is not linear in degrees. */
+const COLORS = ["#FB1900","#D75600","#AD7300","#7C8500",
+                "#3A9100","#00931D","#00915C","#008E85",
+                "#0089AF","#007EED","#4375FF","#746AFF",
+                "#9F56FF","#D016FF","#EA00BB","#F9006C"];
 
 /* ============================================================
    State - the log is the source of truth, totals are derived
@@ -965,26 +973,28 @@ function spillOverfullEdges(rect) {
    an absolute ceiling rather than a proportional one — the same panel on a
    12.9" iPad as on a 10.9" one, because the fingers are the same size.
 
-   Large raises that ceiling. It is not a font setting: bigger type in the
-   same box is bigger glyphs on the same buttons, which is what the
-   play-test already rejected. Both grids flex, so every pixel lands on the
-   keys.
+   That freedom belongs to Large, and only to Large. Small keeps the 370 x
+   340 it always had, which play-test says was fine for the people who want
+   it: the answer to "too small" is the toggle, not one size that tries to
+   suit both hands. So the two settings differ in the box first and the type
+   second — a bigger font in the same box is bigger glyphs on the same
+   button, which is what the play-test rejected in the first place.
 
    `reserve` only binds on a phone in landscape, where the short axis runs
    out before the ceiling does. It keeps a sliver of the far side visible so
    an open panel still reads as a panel over a board. */
 const PANEL = {
-  normal: { inset: 16, max: 560, reserve: 64 },
-  large:  { inset: 8,  max: 680, reserve: 40 }
+  normal: { inset: 16, maxLen: 370, maxDepth: 340, reserve: 64 },
+  large:  { inset: 8,  maxLen: 680, maxDepth: 680, reserve: 40 }
 };
 
 function panelSize(edge, rect, size) {
   const cfg = PANEL[size === "large" ? "large" : "normal"];
   const v = viewport();
   const full = edgeRange(edge, rect).length;
-  const len = Math.max(MIN_LEN, Math.min(full - cfg.inset * 2, cfg.max));
+  const len = Math.max(MIN_LEN, Math.min(full - cfg.inset * 2, cfg.maxLen));
   const across = (edge === "top" || edge === "bottom") ? v.h : v.w;
-  const depth = Math.max(DEPTH, Math.min(cfg.max, across - cfg.reserve)) + bleedFor(edge);
+  const depth = Math.max(DEPTH, Math.min(cfg.maxDepth, across - cfg.reserve)) + bleedFor(edge);
   return { len: len, depth: depth };
 }
 
@@ -1144,15 +1154,14 @@ function paintName(p) {
   /* Keys show the case they will insert, the way a phone keyboard does —
      it is the only honest indicator of what shift is currently doing. */
   const up = nextIsUpper();
-  /* 26 letters + shift + space + delete + confirm is exactly the 6x5 grid,
-     which is why confirm lives in the keyboard here and the strip above
-     carries none: two ticks in one view is the Undo/Clear mistake again. */
+  /* 26 letters + shift + a double-width space + delete fills the 6x5 grid
+     exactly. Confirm used to be the thirtieth key; it sits in the bottom
+     row now, where every other confirm in the app is. */
   const keys =
     LETTERS.map(c => '<button data-n="' + c + '">' + (up ? c : c.toLowerCase()) + "</button>").join("") +
     '<button class="act" data-n="shift"' + (shiftOn ? ' aria-pressed="true"' : "") + ">\u21e7</button>" +
     '<button class="act" data-n="space">\u2423</button>' +
-    '<button class="act" data-n="del">\u232b</button>' +
-    '<button class="ok" data-n="ok" aria-label="Save name">\u2713</button>';
+    '<button class="act" data-n="del">\u232b</button>';
   return '<div class="nameline">' + shown + "</div>" +
          '<div class="kbd">' + keys + "</div>";
 }
@@ -1182,8 +1191,23 @@ function paintColourGrid(p) {
 }
 
 /* Emoji and colour apply on the tap and stay put: the panel IS the colour,
-   so the change announces itself, and the strip carries the live emoji. Only
-   the name needs a confirm, because it is built one letter at a time. */
+   so the change announces itself, and the strip carries the live emoji. The
+   bottom button dismisses rather than commits in those two, and commits in
+   the name view — but it is the same button in the same place either way,
+   which is the point. A confirm that moves between views is a confirm you
+   have to hunt for. */
+function identityFoot(p) {
+  if (panelView === "name") {
+    return '<div class="prow">' +
+      '<button class="btn2" data-n="clearname"' + (nameBuf.length ? "" : " disabled") + ">Clear</button>" +
+      '<button class="btn2 ok" data-n="ok" aria-label="Save name">\u2713</button>' +
+    "</div>";
+  }
+  return '<div class="prow">' +
+    '<button class="btn2 ok" data-v="done" aria-label="Done">\u2713</button>' +
+  "</div>";
+}
+
 function paintIdentity(p, box) {
   const tab = (v, label) => '<button data-v="' + v + '"' +
     (panelView === v ? ' aria-pressed="true"' : "") + ">" + label + "</button>";
@@ -1195,9 +1219,7 @@ function paintIdentity(p, box) {
       '<div class="idnav">' +
         tab("name", "Name") + tab("emoji", p.emoji) + tab("color", "Colour") +
       "</div>" +
-      (panelView === "name" ? ""
-        : '<button class="idok" data-v="done" aria-label="Done">\u2713</button>') +
-    "</div>" + body;
+    "</div>" + body + identityFoot(p);
 }
 
 function paintPanel(p) {
@@ -1321,6 +1343,8 @@ stage.addEventListener("click", e => {
       layout(false);
     } else if (k === "del") {
       nameBuf = nameBuf.slice(0, -1); layout(false);
+    } else if (k === "clearname") {
+      nameBuf = ""; shiftOn = false; layout(false);
     } else if (k === "space") {
       if (nameBuf.length && nameBuf.slice(-1) !== " " && nameBuf.length < 24) nameBuf += " ";
       layout(false);
