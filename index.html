@@ -247,7 +247,23 @@
     align-items: stretch; min-height: 0;
   }
   .panel .ptop { display: flex; align-items: center; gap: 8px; flex: none; line-height: 1; }
-  .panel .pname { font-size: 17px; font-weight: 700; flex: 1; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  /* Emoji and name are one control, not two. They were a 30x26 button beside
+     a 17pt-tall strip, both sitting directly above the pad — small enough
+     that a thumb aiming at a score could not reliably tell which of the
+     three things under it it was about to hit. Now it is one target, one
+     destination, and tall enough to be chosen on purpose. Emoji and color
+     are reached from the strip once you are inside, so the header does not
+     have to offer three doors. */
+  .panel .pid {
+    display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0;
+    font: inherit; font-size: 17px; font-weight: 700; text-align: left;
+    min-height: 44px; padding: 4px 10px; border: 0; border-radius: 9px;
+    background: rgba(var(--anti-rgb),.2); color: var(--ink); cursor: pointer;
+  }
+  .panel .pidemo { font-size: 22px; line-height: 1; flex: none; }
+  .panel .pname { flex: 1; min-width: 0; text-align: left;
+                  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tab.size-large .panel .pid { min-height: 54px; }
   .panel .ptotwrap { display: flex; flex-direction: column; align-items: flex-end; gap: 1px; }
   .panel .plab {
     font-size: 10px; letter-spacing: .12em; text-transform: uppercase;
@@ -335,10 +351,6 @@
     min-height: 1.2em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     border-bottom: 2px solid rgba(var(--ink-rgb),.28); padding-bottom: 4px; flex: none;
   }
-  .panel .pname.tap { text-decoration: underline; text-decoration-color: rgba(var(--ink-rgb),.32);
-                      text-underline-offset: 3px; cursor: pointer; }
-  .panel .pemo { font: inherit; font-size: 22px; line-height: 1; padding: 2px 4px; border: 0;
-                 border-radius: 7px; background: rgba(var(--anti-rgb),.2); color: var(--ink); cursor: pointer; }
 
   /* Identity, edited from the player's own tab so nobody reads the center
      upside down. Three views behind one strip, not three entry points: the
@@ -616,7 +628,7 @@ const STORE = "keepingtabs.state";
    its own build. Not a commit hash: a commit cannot contain its own hash,
    and amending one in only ever leaves it pointing at the commit before.
    The commit message names the build, so `git log --grep` maps it back. */
-const BUILD = "0901-09";
+const BUILD = "0901-10";
 
 /* Whether this context can persist at all. Private mode, a data: URL and
    a full quota all throw, and the app has to keep working regardless. */
@@ -1440,8 +1452,10 @@ function paintPanel(p) {
 
   const header =
     '<div class="ptop">' +
-      '<button class="pemo" data-act="editemoji" aria-label="Emoji">' + p.emoji + '</button>' +
-      '<span class="pname tap" data-act="editname">' + esc(p.name) + '</span>' +
+      '<button class="pid" data-act="editname" aria-label="Edit name, emoji and color">' +
+        '<span class="pidemo">' + p.emoji + "</span>" +
+        '<span class="pname">' + esc(p.name) + "</span>" +
+      "</button>" +
       '<span class="ptotwrap"><span class="plab">round</span>' +
         '<span class="ptot' + (changed ? " edited" : "") + '">' +
           (entry === "-" ? "\u2212" : shown) + '</span></span>' +
@@ -1573,8 +1587,7 @@ stage.addEventListener("click", e => {
 
   if (act) {
     const a = act.dataset.act;
-    if (a === "editname")  { panelView = "name"; nameBuf = p.name; shiftOn = false; layout(false); return; }
-    if (a === "editemoji") { panelView = "emoji"; layout(false); return; }
+    if (a === "editname") { panelView = "name"; nameBuf = p.name; shiftOn = false; layout(false); return; }
     if (a === "ok")    confirmPanel(p);
     if (a === "clear") { entry = ""; layout(false); }
     if (a === "mode")  { p.mode = p.mode === "keys" ? "pad" : "keys"; save(); layout(false); }
