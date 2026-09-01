@@ -525,7 +525,8 @@ function lastMarker() {
   for (let i = log.length - 1; i >= 0; i--) if (log[i].type === "round") return i;
   return -1;
 }
-/* Display only. Phase 10 counts phases, some games start at 0, and a
+/* Display only. Five Crowns numbers its eleven deals by the wild card,
+   3 through K, so its first round is 3; some games start at 0; and a
    game picked up halfway starts wherever it left off. The log is
    unaffected — this is an offset on what the counter reads. */
 function roundNo() { return prefs.startRound + log.filter(e => e.type === "round").length; }
