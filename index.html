@@ -186,6 +186,11 @@
   }
   .panel .ptop { display: flex; align-items: center; gap: 8px; flex: none; line-height: 1; }
   .panel .pname { font-size: 17px; font-weight: 700; flex: 1; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .panel .ptotwrap { display: flex; flex-direction: column; align-items: flex-end; gap: 1px; }
+  .panel .plab {
+    font-size: 10px; letter-spacing: .12em; text-transform: uppercase;
+    opacity: .62; line-height: 1; font-weight: 600;
+  }
   .panel .ptot { font-size: 32px; font-weight: 700; letter-spacing: -.02em;
                  font-variant-numeric: tabular-nums; line-height: 1; }
   /* The pending delta, shown the way a tab shows round-then-total. */
@@ -277,6 +282,7 @@
     text-align: center; font-size: 21px; line-height: 1; color: #fff;
     padding: 0; cursor: pointer;
   }
+  .prow2 button.emo { display: flex; align-items: center; justify-content: center; }
   .prow2 .col {
     width: 34px; height: 34px; flex: none; padding: 0; cursor: pointer;
     border: 1px solid var(--rule); border-radius: 8px; background: transparent;
@@ -319,6 +325,31 @@
   .setting { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 2px; }
   .setting span { font-size: 13px; color: var(--ink-dim); }
   .setting .seg { flex: 0 0 auto; width: 132px; }
+  /* Emoji is chosen from a popup, not typed into a field. There is no way
+     to force the emoji keyboard on any OS — no inputmode value, nothing on
+     iOS or Android — so a picker we draw is the only reliable answer. The
+     field is still there for anyone who wants an emoji we did not list. */
+  #emopop {
+    position: fixed; z-index: 50; left: 50%; top: 50%; transform: translate(-50%,-50%);
+    width: min(360px, calc(100% - 24px)); max-height: min(72%, 560px);
+    background: var(--hub); border: 1px solid var(--rule); border-radius: 14px;
+    padding: 14px; display: none; flex-direction: column; gap: 10px;
+    overflow: auto; touch-action: pan-y;
+  }
+  #emopop.on { display: flex; }
+  #emopop h2 { margin: 0; font-size: 12px; letter-spacing: .16em; text-transform: uppercase; color: var(--ink-dim); }
+  .egrid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
+  .egrid button {
+    aspect-ratio: 1; font-size: 26px; line-height: 1; border: 0; border-radius: 9px;
+    background: #232A2D; cursor: pointer; padding: 0;
+  }
+  .egrid button[aria-pressed="true"] { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .custom { display: flex; gap: 8px; align-items: center; }
+  .custom input {
+    flex: 1; min-width: 0; font: inherit; font-size: 22px; text-align: center;
+    color: var(--ink); background: #232A2D; border: 1px solid var(--rule);
+    border-radius: 9px; padding: 8px; user-select: text; -webkit-user-select: text;
+  }
   .prow2 .tsize {
     width: 34px; height: 34px; flex: none; border-radius: 8px; cursor: pointer;
     border: 1px solid var(--rule); background: #262E31; color: var(--ink);
@@ -360,6 +391,7 @@
 </div>
 
 <div id="sheet"></div>
+<div id="emopop"></div>
 
 <script>
 "use strict";
@@ -389,7 +421,7 @@ const STORE = "keepingtabs.state";
    its own build. Not a commit hash: a commit cannot contain its own hash,
    and amending one in only ever leaves it pointing at the commit before.
    The commit message names the build, so `git log --grep` maps it back. */
-const BUILD = "0830-10";
+const BUILD = "0830-11";
 
 /* Whether this context can persist at all. Private mode, a data: URL and
    a full quota all throw, and the app has to keep working regardless. */
@@ -929,7 +961,9 @@ function paintPanel(p) {
   const box = p.el.querySelector(".panel");
   const keys = p.mode === "keys";
   const pend = pendingOf();
-  const shown = (totals[p.id] || 0) + pend;
+  /* This round only. The game total belongs on the tab and nowhere else —
+     showing both here meant two totals at once, one of them hypothetical. */
+  const shown = (roundScores[p.id] || 0) + pend;
 
   const header =
     '<div class="ptop">' +
@@ -940,7 +974,8 @@ function paintPanel(p) {
         : '<span class="pend">' +
             (entry === "-" ? "\u2212" : (pend > 0 ? "+" + pend : String(pend))) +
           '</span>') +
-      '<span class="ptot">' + shown + '</span>' +
+      '<span class="ptotwrap"><span class="plab">round</span>' +
+        '<span class="ptot">' + shown + '</span></span>' +
     '</div>';
 
   const foot =
@@ -1181,7 +1216,7 @@ function openSheet(view) {
   sheet.classList.toggle("wide", sheetView === "rounds");
   scrim.classList.add("on"); paintSheet();
 }
-function closeSheet() { sheet.classList.remove("on"); scrim.classList.remove("on"); }
+function closeSheet() { sheet.classList.remove("on"); scrim.classList.remove("on"); closeEmoji(); }
 
 function paintRounds() {
   const table = roundTable();
@@ -1210,9 +1245,8 @@ function paintSheet() {
   if (sheetView === "rounds") return paintRounds();
   const rows = players.map(p =>
     '<div class="prow2" data-id="' + p.id + '">' +
-      '<input class="emo" data-act="emoji" value="' + esc(p.emoji) + '" ' +
-        'style="background:' + p.color + '" aria-label="Emoji" ' +
-        'autocomplete="off" autocorrect="off" autocapitalize="off" enterkeyhint="done">' +
+      '<button class="emo" data-act="emoji" style="background:' + p.color + '" ' +
+        'aria-label="Choose emoji">' + p.emoji + "</button>" +
       '<input class="col" data-act="color" type="color" value="' + p.color + '" aria-label="Colour">' +
       '<button class="tsize" data-act="tsize" aria-label="Text size" title="Text size">' +
         (p.textSize === "large" ? "A" : "a") + "</button>" +
@@ -1266,6 +1300,7 @@ sheet.addEventListener("click", e => {
 
   if (act === "add")    { addPlayer(); rebuildTabs(); commit(); paintSheet(); return; }
   if (act === "done")   { closeSheet(); return; }
+  if (act === "emoji") { openEmoji(rowId); return; }
   if (act === "tsize") {
     const pl = players.find(x => x.id === rowId);
     if (pl) { pl.textSize = pl.textSize === "large" ? "normal" : "large"; commit(); paintSheet(); }
@@ -1291,6 +1326,57 @@ sheet.addEventListener("click", e => {
     return;
   }
   if (act === "remove") { removePlayer(rowId); rebuildTabs(); commit(); paintSheet(); return; }
+});
+
+const emopop = document.getElementById("emopop");
+let emojiFor = null;
+
+function openEmoji(id) {
+  emojiFor = id;
+  emopop.classList.add("on");
+  paintEmoji();
+}
+function closeEmoji() { emojiFor = null; emopop.classList.remove("on"); }
+
+function paintEmoji() {
+  const p = players.find(x => x.id === emojiFor);
+  if (!p) return closeEmoji();
+  emopop.innerHTML =
+    "<h2>Emoji for " + esc(p.name) + "</h2>" +
+    '<div class="egrid">' +
+      ANIMALS.map(a => '<button data-e="' + a + '"' +
+        (a === p.emoji ? ' aria-pressed="true"' : "") + ">" + a + "</button>").join("") +
+    "</div>" +
+    '<div class="custom">' +
+      '<input id="emocustom" value="' + esc(p.emoji) + '" aria-label="Any character" ' +
+        'autocomplete="off" autocorrect="off" autocapitalize="off" enterkeyhint="done">' +
+      '<button class="btn" data-e-act="done">Done</button>' +
+    "</div>";
+}
+
+emopop.addEventListener("click", e => {
+  const cell = e.target.closest("[data-e]");
+  const act = e.target.closest("[data-e-act]");
+  const p = players.find(x => x.id === emojiFor);
+  if (!p) return;
+  if (cell) {
+    p.emoji = cell.dataset.e;
+    p.el.querySelector(".emoji").textContent = p.emoji;
+    commit(); closeEmoji(); paintSheet();
+    return;
+  }
+  if (act) { closeEmoji(); paintSheet(); }
+});
+
+/* Anything the grid does not offer can still be typed. */
+emopop.addEventListener("input", e => {
+  if (e.target.id !== "emocustom") return;
+  const p = players.find(x => x.id === emojiFor);
+  const g = firstGrapheme(e.target.value);
+  if (!p || !g) return;
+  p.emoji = g;
+  p.el.querySelector(".emoji").textContent = g;
+  commit();
 });
 
 /* Emoji can be several code points — a ZWJ sequence, a flag — so take
@@ -1321,23 +1407,8 @@ sheet.addEventListener("input", e => {
     p.el.style.background = p.color;
     const emo = row.querySelector('input[data-act="emoji"]');
     if (emo) emo.style.background = p.color;
-  } else if (inp.dataset.act === "emoji") {
-    const g = firstGrapheme(inp.value);
-    if (!g) return;                       // mid-edit; wait for a character
-    p.emoji = g;
-    p.el.querySelector(".emoji").textContent = g;
   }
   commit();
-});
-
-/* Normalise the emoji field on blur, not on input — rewriting value while
-   someone is typing fights the emoji keyboard. */
-sheet.addEventListener("focusout", e => {
-  const inp = e.target.closest('input[data-act="emoji"]');
-  const row = inp && inp.closest("[data-id]");
-  if (!row) return;
-  const p = players.find(x => x.id === row.dataset.id);
-  if (p && inp.value !== p.emoji) inp.value = p.emoji;
 });
 
 document.getElementById("manage").addEventListener("click", openSheet);
