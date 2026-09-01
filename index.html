@@ -267,6 +267,46 @@
   }
   .panel .pname.tap { text-decoration: underline; text-decoration-color: rgba(255,255,255,.32);
                       text-underline-offset: 3px; cursor: pointer; }
+  .panel .pemo { font: inherit; font-size: 22px; line-height: 1; padding: 2px 4px; border: 0;
+                 border-radius: 7px; background: rgba(0,0,0,.2); color: #fff; cursor: pointer; }
+
+  /* Identity, edited from the player's own tab so nobody reads the centre
+     upside down. Three views behind one strip, not three entry points: the
+     panel is 370px on its long side and the round total already owns a third
+     of the header. Every control is drawn, same rule as the keypad and the
+     alphabet. */
+  .idnav { display: flex; gap: 5px; flex: 1; min-width: 0; }
+  .idnav button {
+    font: inherit; font-size: 13px; font-weight: 700; line-height: 1; padding: 8px 10px;
+    border: 0; border-radius: 8px; background: rgba(0,0,0,.26); color: #fff; cursor: pointer;
+  }
+  .idnav button[aria-pressed="true"] { background: rgba(255,255,255,.34); }
+  .idok {
+    font: inherit; font-size: 22px; line-height: 1; padding: 6px 14px; flex: none;
+    border: 0; border-radius: 8px; background: rgba(255,255,255,.34); color: #fff; cursor: pointer;
+  }
+  .pgrid { display: grid; gap: 5px; flex: 1; min-height: 0; }
+  .pgrid.emo    { grid-template-columns: repeat(6, 1fr); grid-auto-rows: minmax(0, 1fr); }
+  .pgrid.colour { grid-template-columns: repeat(4, 1fr); grid-auto-rows: minmax(0, 1fr); }
+  .pgrid button {
+    font: inherit; font-size: 26px; line-height: 1; padding: 0; min-height: 30px;
+    border: 0; border-radius: 9px; background: rgba(255,255,255,.14); color: #fff; cursor: pointer;
+  }
+  .pgrid button[aria-pressed="true"] { outline: 3px solid #fff; outline-offset: -3px; }
+  /* Colour is how a player finds their own tab from across the table, so the
+     grid will not hand out one already in use. Taken colours stay in place,
+     dimmed rather than removed, so it does not reshuffle between visits. The
+     centre sheet's freeform picker is still free to collide, the same escape
+     hatch the freeform emoji field is — deliberate, and beside it. */
+  /* Struck through, not merely dimmed. A faded swatch on a coloured panel
+     just reads as a paler colour — which is to say, as a choice. */
+  .pgrid.colour button:disabled {
+    cursor: default; opacity: .55;
+    background-image: linear-gradient(135deg, transparent calc(50% - 2px),
+      rgba(0,0,0,.72) calc(50% - 2px), rgba(0,0,0,.72) calc(50% + 2px), transparent calc(50% + 2px));
+  }
+  .tab.size-large .pgrid button { font-size: 30px; }
+  .tab.size-large .idnav button { font-size: 15px; }
 
   /* keypad - drawn, never a native input, because the panel is rotated */
   .keys { display: grid; grid-template-columns: repeat(3, 1fr);
@@ -463,7 +503,7 @@ const STORE = "keepingtabs.state";
    its own build. Not a commit hash: a commit cannot contain its own hash,
    and amending one in only ever leaves it pointing at the commit before.
    The commit message names the build, so `git log --grep` maps it back. */
-const BUILD = "0830-16";
+const BUILD = "0901-01";
 
 /* Whether this context can persist at all. Private mode, a data: URL and
    a full quota all throw, and the app has to keep working regardless. */
@@ -936,6 +976,11 @@ function render(rect) {
                    (hotAt !== null && (lastRound[p.id] || 0) === hotAt ? " won-round" : "");
     p._renderedEdge = p.edge;
 
+    /* Identity is rendered, not poked. It used to be written once in
+       buildTab and then patched by hand wherever it could change, which
+       worked for exactly the one caller that remembered to do it. */
+    el.style.background = p.color;
+    el.querySelector(".emoji").textContent = p.emoji;
     el.querySelector(".who").textContent = size.len >= 150 ? p.name : p.name.split(" ")[0];
     el.querySelector(".tot").textContent = totals[p.id] || 0;
     const rnd = el.querySelector(".rnd");
@@ -1028,29 +1073,64 @@ function nextIsUpper() {
   return startsWord !== shiftOn;
 }
 
-function paintName(p, box) {
+function paintName(p) {
   const shown = nameBuf.length ? esc(nameBuf) : '<span style="opacity:.45">Name</span>';
   /* Keys show the case they will insert, the way a phone keyboard does —
      it is the only honest indicator of what shift is currently doing. */
   const up = nextIsUpper();
+  /* 26 letters + shift + space + delete + confirm is exactly the 6x5 grid,
+     which is why confirm lives in the keyboard here and the strip above
+     carries none: two ticks in one view is the Undo/Clear mistake again. */
   const keys =
     LETTERS.map(c => '<button data-n="' + c + '">' + (up ? c : c.toLowerCase()) + "</button>").join("") +
     '<button class="act" data-n="shift"' + (shiftOn ? ' aria-pressed="true"' : "") + ">\u21e7</button>" +
     '<button class="act" data-n="space">\u2423</button>' +
     '<button class="act" data-n="del">\u232b</button>' +
     '<button class="ok" data-n="ok" aria-label="Save name">\u2713</button>';
+  return '<div class="nameline">' + shown + "</div>" +
+         '<div class="kbd">' + keys + "</div>";
+}
+
+function paintEmojiGrid(p) {
+  /* No free-text field here, unlike the centre sheet: a native input in a
+     rotated panel is the thing this whole keyboard exists to avoid. The
+     sheet keeps that escape hatch for anything the grid does not carry. */
+  return '<div class="pgrid emo">' +
+    ANIMALS.map(a => '<button data-pe="' + a + '"' +
+      (a === p.emoji ? ' aria-pressed="true"' : "") + ">" + a + "</button>").join("") + "</div>";
+}
+
+function paintColourGrid(p) {
+  const taken = new Set(players.filter(x => x.id !== p.id).map(x => x.color));
+  return '<div class="pgrid colour">' +
+    COLORS.map(c => '<button data-pc="' + c + '" style="background-color:' + c + '"' +
+      ' aria-label="' + c + '"' +
+      (c === p.color ? ' aria-pressed="true"' : "") +
+      (taken.has(c) ? " disabled" : "") + "></button>").join("") + "</div>";
+}
+
+/* Emoji and colour apply on the tap and stay put: the panel IS the colour,
+   so the change announces itself, and the strip carries the live emoji. Only
+   the name needs a confirm, because it is built one letter at a time. */
+function paintIdentity(p, box) {
+  const tab = (v, label) => '<button data-v="' + v + '"' +
+    (panelView === v ? ' aria-pressed="true"' : "") + ">" + label + "</button>";
+  const body = panelView === "emoji" ? paintEmojiGrid(p)
+             : panelView === "color" ? paintColourGrid(p)
+             : paintName(p);
   box.innerHTML =
     '<div class="ptop">' +
-      '<span style="font-size:22px">' + p.emoji + "</span>" +
-      '<span class="pname">Your name</span>' +
-    "</div>" +
-    '<div class="nameline">' + shown + "</div>" +
-    '<div class="kbd">' + keys + "</div>";
+      '<div class="idnav">' +
+        tab("name", "Name") + tab("emoji", p.emoji) + tab("color", "Colour") +
+      "</div>" +
+      (panelView === "name" ? ""
+        : '<button class="idok" data-v="done" aria-label="Done">\u2713</button>') +
+    "</div>" + body;
 }
 
 function paintPanel(p) {
   const box = p.el.querySelector(".panel");
-  if (panelView === "name") return paintName(p, box);
+  if (panelView !== "score") return paintIdentity(p, box);
   const keys = p.mode === "keys";
   /* This round only. The game total belongs on the tab and nowhere else. */
   const shown = enteredValue();
@@ -1058,7 +1138,7 @@ function paintPanel(p) {
 
   const header =
     '<div class="ptop">' +
-      '<span style="font-size:22px">' + p.emoji + '</span>' +
+      '<button class="pemo" data-act="editemoji" aria-label="Emoji">' + p.emoji + '</button>' +
       '<span class="pname tap" data-act="editname">' + esc(p.name) + '</span>' +
       '<span class="ptotwrap"><span class="plab">round</span>' +
         '<span class="ptot' + (changed ? " edited" : "") + '">' +
@@ -1144,6 +1224,21 @@ stage.addEventListener("click", e => {
     layout(false);
     return;
   }
+  const v  = e.target.closest("[data-v]");
+  const pe = e.target.closest("[data-pe]");
+  const pc = e.target.closest("[data-pc]");
+  if (v) {
+    const t = v.dataset.v;
+    if (t === "done") { panelView = "score"; nameBuf = ""; shiftOn = false; layout(false); }
+    else {
+      if (t === "name") { nameBuf = p.name; shiftOn = false; }
+      panelView = t; layout(false);
+    }
+    return;
+  }
+  if (pe) { p.emoji = pe.dataset.pe; commit(); return; }
+  if (pc) { p.color = pc.dataset.pc; commit(); return; }
+
   const n = e.target.closest("[data-n]");
   if (n) {
     const k = n.dataset.n;
@@ -1169,7 +1264,8 @@ stage.addEventListener("click", e => {
 
   if (act) {
     const a = act.dataset.act;
-    if (a === "editname") { panelView = "name"; nameBuf = p.name; shiftOn = false; layout(false); return; }
+    if (a === "editname")  { panelView = "name"; nameBuf = p.name; shiftOn = false; layout(false); return; }
+    if (a === "editemoji") { panelView = "emoji"; layout(false); return; }
     if (a === "ok")    confirmPanel(p);
     if (a === "clear") { entry = ""; layout(false); }
     if (a === "mode")  { p.mode = p.mode === "keys" ? "pad" : "keys"; save(); layout(false); }
@@ -1481,7 +1577,6 @@ emopop.addEventListener("click", e => {
   if (!p) return;
   if (cell) {
     p.emoji = cell.dataset.e;
-    p.el.querySelector(".emoji").textContent = p.emoji;
     commit(); closeEmoji(); paintSheet();
     return;
   }
@@ -1495,7 +1590,6 @@ emopop.addEventListener("input", e => {
   const g = firstGrapheme(e.target.value);
   if (!p || !g) return;
   p.emoji = g;
-  p.el.querySelector(".emoji").textContent = g;
   commit();
 });
 
@@ -1524,8 +1618,12 @@ sheet.addEventListener("input", e => {
     p.name = inp.value;
   } else if (inp.dataset.act === "color") {
     p.color = inp.value;
-    p.el.style.background = p.color;
-    const emo = row.querySelector('input[data-act="emoji"]');
+    /* type=color streams input events for the whole drag, so repainting
+       the sheet here would tear the picker's own row out from under it.
+       The tab repaints itself in render; only this swatch needs poking.
+       (The selector used to say `input`, which this has not been since it
+       became a button — so the swatch quietly stopped following.) */
+    const emo = row.querySelector('button[data-act="emoji"]');
     if (emo) emo.style.background = p.color;
   }
   commit();

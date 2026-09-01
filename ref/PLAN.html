@@ -629,6 +629,7 @@
 
     <h4>A player cannot edit themselves from their own tab</h4>
     <p>Name, colour and emoji are only reachable from the players sheet in the centre, which is upside down for half the table. This collides with the rule that rotated surfaces take no native inputs: a colour picker is system UI and survives rotation, but a text field for a name does not.</p>
+    <p><strong>Done.</strong> All three are now edited from the panel, behind one strip &mdash; drawn alphabet, drawn emoji grid, drawn palette. Nothing native, so nothing depends on rotation. Emoji and colour apply on the tap because the panel <em>is</em> the colour and the strip carries the emoji, so each change is its own confirmation; only the name needs a tick, being built a letter at a time. The palette will not hand out a colour another player holds &mdash; struck through, not merely dimmed, since a faded swatch on a coloured panel reads as a paler <em>choice</em>. The centre sheet keeps its freeform picker and freeform emoji field: unrotated there, and the escape hatch for anything the grids do not carry.</p>
 
     <h4>Emoji entry is character entry</h4>
     <p>The field accepts any character, which was the intent, but it gives no help choosing an emoji and no indication that an emoji is what it wants. <strong>There is no way to force the emoji keyboard</strong> — no <code>inputmode</code> value for it, and no equivalent on iOS or Android. Any answer has to be a picker we draw ourselves.</p>
