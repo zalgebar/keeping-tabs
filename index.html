@@ -237,6 +237,31 @@
   .hist { font-size: 12px; color: rgba(255,255,255,.72); font-variant-numeric: tabular-nums;
           white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: left; min-height: 1.3em; }
 
+  /* Alphabet, drawn for the same reason as the keypad: a native field in a
+     rotated panel puts the keyboard against a 90-degree text box, and no
+     platform lets a web page force the device to rotate — Safari has no
+     screen.orientation.lock() and iOS ignores the manifest's orientation
+     field. Six columns rather than QWERTY's ten, because 52px keys beat
+     31px ones for something typed once. */
+  .kbd {
+    display: grid; grid-template-columns: repeat(6, 1fr);
+    grid-template-rows: repeat(5, minmax(0, 1fr)); gap: 5px; flex: 1; min-height: 0;
+  }
+  .kbd button {
+    font: inherit; font-size: 21px; font-weight: 600; padding: 0; min-height: 34px;
+    border: 0; border-radius: 9px; background: rgba(255,255,255,.14); color: #fff; cursor: pointer;
+  }
+  .kbd button.act { background: rgba(0,0,0,.26); font-size: 17px; }
+  .kbd button.act[aria-pressed="true"] { background: rgba(255,255,255,.34); }
+  .kbd button.ok { background: rgba(255,255,255,.34); font-size: 24px; }
+  .nameline {
+    font-size: 24px; font-weight: 700; text-align: left; line-height: 1.15;
+    min-height: 1.2em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    border-bottom: 2px solid rgba(255,255,255,.28); padding-bottom: 4px; flex: none;
+  }
+  .panel .pname.tap { text-decoration: underline; text-decoration-color: rgba(255,255,255,.32);
+                      text-underline-offset: 3px; cursor: pointer; }
+
   /* keypad - drawn, never a native input, because the panel is rotated */
   .keys { display: grid; grid-template-columns: repeat(3, 1fr);
           grid-template-rows: repeat(4, minmax(0, 1fr)); gap: 6px; flex: 1; min-height: 0; }
@@ -421,7 +446,7 @@ const STORE = "keepingtabs.state";
    its own build. Not a commit hash: a commit cannot contain its own hash,
    and amending one in only ever leaves it pointing at the commit before.
    The commit message names the build, so `git log --grep` maps it back. */
-const BUILD = "0830-11";
+const BUILD = "0830-12";
 
 /* Whether this context can persist at all. Private mode, a data: URL and
    a full quota all throw, and the app has to keep working regardless. */
@@ -457,6 +482,9 @@ let arrangeMode = false;
 let prefs = { ambient: true, wakeLock: true, winCondition: "high" };
 let openId = null;               // player whose panel is expanded
 let entry = "";                  // pending delta, as a string, for whichever mode is open
+let panelView = "score";         // score | name
+let nameBuf = "";
+let shiftOn = false;
 let safe = { top: 0, right: 0, bottom: 0, left: 0 };
 let totals = {};
 let roundScores = {};
@@ -928,6 +956,7 @@ function rebuildTabs() {
 function openPanel(p) {
   openId = p.id;
   entry = "";                       // nothing pending until something is tapped
+  panelView = "score"; nameBuf = ""; shiftOn = false;
   if (p.mode !== "keys" && p.mode !== "pad") p.mode = "pad";
   scrim.classList.add("on");
   layout(false);
@@ -937,7 +966,7 @@ function openPanel(p) {
    reached the log yet, so there is nothing to roll back. */
 function closePanel() {
   openId = null;
-  entry = "";
+  entry = ""; panelView = "score"; nameBuf = ""; shiftOn = false;
   scrim.classList.remove("on");
   layout(false);
 }
@@ -957,8 +986,28 @@ function confirmPanel(p) {
    digits append to it, so switching modes needs no conversion. */
 function pendingOf() { return parseInt(entry, 10) || 0; }
 
+const LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+
+function paintName(p, box) {
+  const shown = nameBuf.length ? esc(nameBuf) : '<span style="opacity:.45">Name</span>';
+  const keys =
+    LETTERS.map(c => '<button data-n="' + c + '">' + c + "</button>").join("") +
+    '<button class="act" data-n="shift"' + (shiftOn ? ' aria-pressed="true"' : "") + ">\u21e7</button>" +
+    '<button class="act" data-n="space">\u2423</button>' +
+    '<button class="act" data-n="del">\u232b</button>' +
+    '<button class="ok" data-n="ok" aria-label="Save name">\u2713</button>';
+  box.innerHTML =
+    '<div class="ptop">' +
+      '<span style="font-size:22px">' + p.emoji + "</span>" +
+      '<span class="pname">Your name</span>' +
+    "</div>" +
+    '<div class="nameline">' + shown + "</div>" +
+    '<div class="kbd">' + keys + "</div>";
+}
+
 function paintPanel(p) {
   const box = p.el.querySelector(".panel");
+  if (panelView === "name") return paintName(p, box);
   const keys = p.mode === "keys";
   const pend = pendingOf();
   /* This round only. The game total belongs on the tab and nowhere else —
@@ -968,7 +1017,7 @@ function paintPanel(p) {
   const header =
     '<div class="ptop">' +
       '<span style="font-size:22px">' + p.emoji + '</span>' +
-      '<span class="pname">' + esc(p.name) + '</span>' +
+      '<span class="pname tap" data-act="editname">' + esc(p.name) + '</span>' +
       (entry === ""
         ? ""
         : '<span class="pend">' +
@@ -1058,8 +1107,35 @@ stage.addEventListener("click", e => {
     layout(false);
     return;
   }
+  const n = e.target.closest("[data-n]");
+  if (n) {
+    const k = n.dataset.n;
+    if (k === "ok") {
+      const trimmed = nameBuf.trim();
+      if (trimmed) { p.name = trimmed; commit(); }
+      panelView = "score"; nameBuf = ""; shiftOn = false;
+      layout(false);
+    } else if (k === "del") {
+      nameBuf = nameBuf.slice(0, -1); layout(false);
+    } else if (k === "space") {
+      if (nameBuf.length && nameBuf.slice(-1) !== " " && nameBuf.length < 24) nameBuf += " ";
+      layout(false);
+    } else if (k === "shift") {
+      shiftOn = !shiftOn; layout(false);
+    } else if (nameBuf.length < 24) {
+      /* Word starts capitalise themselves; shift overrides for the rest, so
+         "van Aken" and "McDonald" are both reachable. */
+      const startsWord = nameBuf.length === 0 || nameBuf.slice(-1) === " ";
+      nameBuf += (startsWord !== shiftOn) ? k : k.toLowerCase();
+      shiftOn = false;
+      layout(false);
+    }
+    return;
+  }
+
   if (act) {
     const a = act.dataset.act;
+    if (a === "editname") { panelView = "name"; nameBuf = p.name; shiftOn = false; layout(false); return; }
     if (a === "ok")    confirmPanel(p);
     if (a === "clear") { entry = ""; layout(false); }
     if (a === "mode")  { p.mode = p.mode === "keys" ? "pad" : "keys"; save(); layout(false); }
