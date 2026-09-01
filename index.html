@@ -112,6 +112,14 @@
   /* ---------------- tabs ---------------- */
 
   #stage { position: fixed; inset: 0; pointer-events: none; z-index: 2; }
+  /* Saturated tabs on black read as the game rather than the scorepad
+     beside it. Idle, the whole app desaturates and sinks back; any touch
+     wakes it. Filtering the two containers rather than each tab keeps it
+     to two composited layers, and it cannot fight the per-tab filter the
+     lifted state uses. The hub is included or it becomes the brightest
+     thing on the table while everything else recedes. */
+  #stage, #centre { transition: filter .7s ease; }
+  body.ambient #stage, body.ambient #centre { filter: saturate(.3) brightness(.62); }
 
   .tab {
     position: absolute; top: 0; left: 0; transform-origin: 0 0;
@@ -250,6 +258,9 @@
     user-select: text; -webkit-user-select: text;
   }
   .prow2 input:focus { outline: none; border-bottom-color: var(--accent); }
+  .setting { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 2px; }
+  .setting span { font-size: 13px; color: var(--ink-dim); }
+  .setting .seg { flex: 0 0 auto; width: 132px; }
   .prow2 .kill { width: 34px; height: 34px; border-radius: 8px; border: 0; cursor: pointer;
                  background: transparent; color: var(--ink-dim); font-size: 17px; }
 
@@ -307,12 +318,13 @@ const HOME_BAR_TABLET = 20;
 const HOLD_MS = 350;
 const SLOP    = 8;
 const MAX_PLAYERS = 16;
+const AMBIENT_MS = 20000;   // idle before the tabs sink back
 const STORE = "keepingtabs.state";
 /* Date-sequence, bumped by hand each commit, so a screenshot identifies
    its own build. Not a commit hash: a commit cannot contain its own hash,
    and amending one in only ever leaves it pointing at the commit before.
    The commit message names the build, so `git log --grep` maps it back. */
-const BUILD = "0830-6";
+const BUILD = "0830-7";
 
 /* Whether this context can persist at all. Private mode, a data: URL and
    a full quota all throw, and the app has to keep working regardless. */
@@ -345,6 +357,7 @@ const COLORS = ["#B3591F","#43489B","#1E5C46","#A02F2C","#6B4C9A","#0F6E77",
 let players = [];
 let log = [];                    // { id, ts, type:"delta", playerId, value }
 let arrangeMode = false;
+let prefs = { ambient: true };
 let openId = null;               // player whose panel is expanded
 let entry = "";                  // pending delta, as a string, for whichever mode is open
 let safe = { top: 0, right: 0, bottom: 0, left: 0 };
@@ -378,7 +391,8 @@ function save() {
       version: 1,
       players: players.map(p => ({ id: p.id, name: p.name, color: p.color, emoji: p.emoji,
                                    edge: p.edge, fraction: p.fraction, mode: p.mode })),
-      log: log
+      log: log,
+      prefs: prefs
     }));
     lastSave = new Date().toTimeString().slice(0, 8);
   } catch (e) {
@@ -395,9 +409,32 @@ function load() {
     if (!d || d.version !== 1 || !Array.isArray(d.players) || !d.players.length) return false;
     players = d.players;
     log = Array.isArray(d.log) ? d.log : [];
+    if (d.prefs && typeof d.prefs.ambient === "boolean") prefs.ambient = d.prefs.ambient;
     return true;
   } catch (e) { return false; }
 }
+
+let ambientTimer = null;
+
+function scheduleAmbient() {
+  clearTimeout(ambientTimer);
+  if (!prefs.ambient) { document.body.classList.remove("ambient"); return; }
+  ambientTimer = setTimeout(function () {
+    /* Something open is not idle. */
+    if (openId || sheet.classList.contains("on")) { scheduleAmbient(); return; }
+    document.body.classList.add("ambient");
+  }, AMBIENT_MS);
+}
+
+function wake() {
+  document.body.classList.remove("ambient");
+  scheduleAmbient();
+}
+
+/* Capture, so a tap wakes the tabs even when it lands on a control that
+   stops propagation. The tap still does its job — waking is not a mode
+   you have to tap past first. */
+window.addEventListener("pointerdown", wake, true);
 
 /* Every mutation ends here, so autosave can never be forgotten. */
 function commit() {
@@ -405,6 +442,7 @@ function commit() {
   save();
   layout(true);
   paintHub();
+  wake();
 }
 
 /* ============================================================
@@ -999,6 +1037,13 @@ function paintSheet() {
       '<button class="btn primary" data-act="add"' + (players.length >= MAX_PLAYERS ? " disabled" : "") + ">Add player</button>" +
       '<button class="btn" data-act="done">Done</button>' +
     "</div>" +
+    '<div class="setting">' +
+      "<span>Dim when idle</span>" +
+      '<div class="seg">' +
+        '<button data-act="ambient" data-v="on"'  + (prefs.ambient ? ' aria-pressed="true"' : "") + ">On</button>" +
+        '<button data-act="ambient" data-v="off"' + (prefs.ambient ? "" : ' aria-pressed="true"') + ">Off</button>" +
+      "</div>" +
+    "</div>" +
     '<div class="btns">' +
       '<button class="btn" data-act="reset"' + (log.length ? "" : " disabled") + ">Reset scores</button>" +
       '<button class="btn" data-act="wipe">Start over</button>' +
@@ -1015,6 +1060,7 @@ sheet.addEventListener("click", e => {
 
   if (act === "add")    { addPlayer(); rebuildTabs(); commit(); paintSheet(); return; }
   if (act === "done")   { closeSheet(); return; }
+  if (act === "ambient") { prefs.ambient = b.dataset.v === "on"; save(); wake(); paintSheet(); return; }
   if (act === "reset")  { log = []; commit(); paintSheet(); return; }
   if (act === "wipe") {
     players = []; log = [];
@@ -1096,6 +1142,7 @@ if (!load()) {
 }
 rebuildTabs();
 commit();
+scheduleAmbient();
 </script>
 </body>
 </html>
