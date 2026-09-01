@@ -206,8 +206,14 @@
   /* Both grids flex to fill the panel rather than stacking to a fixed
      height. A fixed stack overflowed on a side panel, and `overflow:
      hidden` quietly clipped the confirm button. */
+  /* Two rows, against the keypad's four and the alphabet's five — so on a
+     tablet's depth this is the one grid that runs away, and a 260pt button
+     is not a more hittable button than a 150pt one. Cap the row and centre
+     what is left over rather than distributing it into the buttons. */
   .pad { display: grid; grid-template-columns: repeat(3, 1fr);
-         grid-template-rows: repeat(2, minmax(0, 1fr)); gap: 6px; flex: 1; min-height: 0; }
+         grid-template-rows: repeat(2, minmax(0, 150px)); gap: 6px;
+         align-content: center; flex: 1; min-height: 0; }
+  .tab.size-large .pad { grid-template-rows: repeat(2, minmax(0, 180px)); }
   .pad button {
     font: inherit; font-size: 26px; font-weight: 700; padding: 6px 0; min-height: 40px;
     border-radius: 9px; border: 0; cursor: pointer;
@@ -447,7 +453,45 @@
   @media (prefers-reduced-motion: reduce) {
     .tab, .tab.settling, #scrim { transition: none; }
   }
-</style>
+
+  /* The panel is no longer one size, so neither is its type: 26px is right
+     in a 370pt box and lost in a 680pt one. Sized against the panel's own
+     short side, floored at what the fixed sizes above already were so a
+     phone is unchanged, and capped where glyphs stop earning their space.
+     Behind @supports because an unknown unit would void the whole
+     declaration — without the guard, a browser without container queries
+     would fall back past these to the browser default rather than to the
+     px sizes. Last in the stylesheet on purpose: these tie on specificity
+     with the fixed sizes they override, so they win on order alone, and
+     sitting anywhere else means silently losing to whichever block was
+     declared later. That is exactly how .keys was missed the first time. */
+  @supports (font-size: 1cqmin) {
+    .panel { container-type: size; }
+    .pad button        { font-size: clamp(26px, 6.5cqmin, 46px); }
+    .keys button       { font-size: clamp(28px, 6cqmin, 44px); }
+    .kbd button        { font-size: clamp(21px, 4.4cqmin, 34px); }
+    .pgrid button      { font-size: clamp(26px, 5.6cqmin, 42px); }
+    .panel .ptot       { font-size: clamp(32px, 7cqmin, 50px); }
+    .panel .pname      { font-size: clamp(17px, 3.4cqmin, 26px); }
+    .nameline          { font-size: clamp(24px, 5cqmin, 38px); }
+    .prow .btn2        { font-size: clamp(15px, 3.2cqmin, 24px); }
+    .prow .btn2.ok     { font-size: clamp(26px, 5.6cqmin, 42px); }
+    .idnav button      { font-size: clamp(13px, 2.8cqmin, 21px); }
+    .pmore             { font-size: clamp(13px, 2.8cqmin, 21px); }
+
+    .tab.size-large .pad button    { font-size: clamp(34px, 7.5cqmin, 54px); }
+    .tab.size-large .keys button   { font-size: clamp(36px, 7cqmin, 52px); }
+    .tab.size-large .kbd button    { font-size: clamp(24px, 5cqmin, 40px); }
+    .tab.size-large .pgrid button  { font-size: clamp(30px, 6.4cqmin, 50px); }
+    .tab.size-large .panel .ptot   { font-size: clamp(38px, 8cqmin, 58px); }
+    .tab.size-large .panel .pname  { font-size: clamp(20px, 3.9cqmin, 30px); }
+    .tab.size-large .nameline      { font-size: clamp(28px, 5.7cqmin, 44px); }
+    .tab.size-large .prow .btn2    { font-size: clamp(17px, 3.7cqmin, 28px); }
+    .tab.size-large .prow .btn2.ok { font-size: clamp(32px, 6.4cqmin, 48px); }
+    .tab.size-large .idnav button  { font-size: clamp(15px, 3.2cqmin, 24px); }
+    .tab.size-large .pmore         { font-size: clamp(15px, 3.2cqmin, 24px); }
+  }
+  </style>
 </head>
 <body>
 
@@ -510,7 +554,7 @@ const STORE = "keepingtabs.state";
    its own build. Not a commit hash: a commit cannot contain its own hash,
    and amending one in only ever leaves it pointing at the commit before.
    The commit message names the build, so `git log --grep` maps it back. */
-const BUILD = "0901-02";
+const BUILD = "0901-03";
 
 /* Whether this context can persist at all. Private mode, a data: URL and
    a full quota all throw, and the app has to keep working regardless. */
@@ -905,27 +949,42 @@ function spillOverfullEdges(rect) {
 
 /* An open panel is modal — the scrim covers everything else — so it is not
    bound by the corner reservation that keeps tabs apart, and it may reach
-   past the opposite edge's tabs. Normal is 370 x 340, the size it comes out
-   at on the short edge of an iPhone, and the target everywhere: a bigger
-   screen gets the same panel, not a bigger one.
+   past the opposite edge's tabs.
 
-   Large is NOT a font setting. Bigger type in the same box only buys bigger
-   glyphs on the same buttons, and the play-test asked for bigger buttons. So
-   the panel itself grows — less inset at the ends, a higher cap, less held
-   back on the far side — and since the grids flex, every pixel gained lands
-   on the keys. */
+   This used to cap at 370 x 340, the size it comes out at on the short edge
+   of an iPhone, on the reasoning that a panel should stay near its player's
+   edge so nobody has to reach. Play-test says reach was never the problem:
+   an iPad is a small object on a table and every edge of it is already
+   within arm's length. Holding the panel close to its edge bought nothing
+   and cost button size, which is the thing players actually complained
+   about. Orientation is what marks a panel as yours. Proximity never was.
+
+   So the panel takes the space it is given. What stops it is not the screen
+   but the hand: a button has a best size in millimetres, not in per cent,
+   and past roughly a thumb and a half it stops getting easier to hit. Hence
+   an absolute ceiling rather than a proportional one — the same panel on a
+   12.9" iPad as on a 10.9" one, because the fingers are the same size.
+
+   Large raises that ceiling. It is not a font setting: bigger type in the
+   same box is bigger glyphs on the same buttons, which is what the
+   play-test already rejected. Both grids flex, so every pixel lands on the
+   keys.
+
+   `reserve` only binds on a phone in landscape, where the short axis runs
+   out before the ceiling does. It keeps a sliver of the far side visible so
+   an open panel still reads as a panel over a board. */
 const PANEL = {
-  normal: { inset: 16, maxLen: 370, maxDepth: 340, reserve: 64 },
-  large:  { inset: 8,  maxLen: 430, maxDepth: 410, reserve: 28 }
+  normal: { inset: 16, max: 560, reserve: 64 },
+  large:  { inset: 8,  max: 680, reserve: 40 }
 };
 
 function panelSize(edge, rect, size) {
   const cfg = PANEL[size === "large" ? "large" : "normal"];
   const v = viewport();
   const full = edgeRange(edge, rect).length;
-  const len = Math.max(MIN_LEN, Math.min(full - cfg.inset * 2, cfg.maxLen));
+  const len = Math.max(MIN_LEN, Math.min(full - cfg.inset * 2, cfg.max));
   const across = (edge === "top" || edge === "bottom") ? v.h : v.w;
-  const depth = Math.max(DEPTH, Math.min(cfg.maxDepth, across - cfg.reserve)) + bleedFor(edge);
+  const depth = Math.max(DEPTH, Math.min(cfg.max, across - cfg.reserve)) + bleedFor(edge);
   return { len: len, depth: depth };
 }
 
