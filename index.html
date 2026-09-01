@@ -125,9 +125,36 @@
   #stage, #centre { transition: filter .7s ease; }
   body.ambient #stage, body.ambient #centre { filter: saturate(.3) brightness(.62); }
 
+  /* A tab is painted in a colour its player chose, and since v1.0 that can
+     be any colour at all — the native picker has no palette. So nothing in
+     here names white: everything is written against --ink, which render
+     flips to near-black on a colour too light to carry white text. The
+     translucent fills go with it, or a white-tinted button on a yellow tab
+     would vanish while its label stayed put.
+
+       --ink       text and anything that has to be read
+       --ink-rgb   fills that RAISE a surface toward the ink
+       --anti-rgb  fills that SINK one away from it
+       --edit      the unsaved-edit highlight, which has to clear the tab too
+
+     Defaults are the white-ink case, so a tab renders correctly before
+     render has said anything about it.
+
+     One consequence worth naming: a state marked by tinting a surface
+     TOWARD the ink is a state that erodes the contrast of its own label.
+     Confirm was a .34 white wash on a coloured tab, which on the amber
+     came to 2.37:1 — the most important button in the app, and the least
+     readable thing in it. So selected and primary states are filled
+     nearly solid in the ink and label themselves in the anti colour
+     instead. They read as pressed far more clearly than a wash did, and
+     the contrast goes up rather than down. */
   .tab {
+    --ink: #fff;
+    --ink-rgb: 255,255,255;
+    --anti-rgb: 0,0,0;
+    --edit: #FFD98A;
     position: absolute; top: 0; left: 0; transform-origin: 0 0;
-    pointer-events: auto; cursor: grab; color: #fff;
+    pointer-events: auto; cursor: grab; color: var(--ink);
     display: flex; flex-direction: column; align-items: center; justify-content: center;
     gap: 1px; overflow: hidden;
     border-radius: 12px 12px 0 0;
@@ -195,14 +222,9 @@
                  font-variant-numeric: tabular-nums; line-height: 1; }
   /* Unsaved edit. The number itself carries the state, so there is no
      second figure to read. */
-  .panel .ptot.edited { color: #FFD98A; }
+  .panel .ptot.edited { color: var(--edit); }
   /* The pending delta, shown the way a tab shows round-then-total. */
   .panel .pend { font-size: 17px; font-weight: 600; opacity: .85; font-variant-numeric: tabular-nums; }
-  .panel .x.ok { background: rgba(255,255,255,.30); font-weight: 700; }
-  .panel .x {
-    width: 34px; height: 34px; border-radius: 8px; border: 0; cursor: pointer;
-    background: rgba(0,0,0,.28); color: #fff; font-size: 17px; line-height: 1;
-  }
   /* Both grids flex to fill the panel rather than stacking to a fixed
      height. A fixed stack overflowed on a side panel, and `overflow:
      hidden` quietly clipped the confirm button. */
@@ -217,11 +239,11 @@
   .pad button {
     font: inherit; font-size: 26px; font-weight: 700; padding: 6px 0; min-height: 40px;
     border-radius: 9px; border: 0; cursor: pointer;
-    background: rgba(255,255,255,.16); color: #fff;
+    background: rgba(var(--ink-rgb),.16); color: var(--ink);
     font-variant-numeric: tabular-nums;
   }
-  .pad button.minus { background: rgba(0,0,0,.26); }
-  .pad button:active { background: rgba(255,255,255,.34); }
+  .pad button.minus { background: rgba(var(--anti-rgb),.26); }
+  .pad button:active { background: rgba(var(--ink-rgb),.34); }
   /* Confirm lives here, a full row away from the digits. Moving it to the
      other end of the header would not have helped: the fault is reach,
      not eyesight, and both top corners are where thumbs already are.
@@ -237,11 +259,11 @@
     font: inherit; font-size: 15px; padding: 6px 4px; min-height: 54px;
     flex: 1 1 0; min-width: 0;
     border-radius: 9px; border: 0; cursor: pointer;
-    background: rgba(0,0,0,.24); color: #fff;
+    background: rgba(var(--anti-rgb),.24); color: var(--ink);
   }
   .prow .btn2:disabled { opacity: .4; }
-  .prow .btn2.ok { background: rgba(255,255,255,.34); font-size: 26px; font-weight: 700;
-                   flex: 1.5 1 0; }
+  .prow .btn2.ok { background: rgba(var(--ink-rgb),.92); color: rgba(var(--anti-rgb),1);
+                   font-size: 26px; font-weight: 700; flex: 1.5 1 0; }
 
   /* Per-player type size, because hands differ around one table. */
   .tab.size-large .pad button    { font-size: 42px; }
@@ -252,8 +274,6 @@
   .tab.size-large .panel .pname  { font-size: 24px; }
   .tab.size-large .kbd button    { font-size: 30px; }
   .tab.size-large .nameline      { font-size: 34px; }
-  .hist { font-size: 12px; color: rgba(255,255,255,.72); font-variant-numeric: tabular-nums;
-          white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: left; min-height: 1.3em; }
 
   /* Alphabet, drawn for the same reason as the keypad: a native field in a
      rotated panel puts the keyboard against a 90-degree text box, and no
@@ -267,22 +287,23 @@
   }
   .kbd button {
     font: inherit; font-size: 21px; font-weight: 600; padding: 0; min-height: 34px;
-    border: 0; border-radius: 9px; background: rgba(255,255,255,.14); color: #fff; cursor: pointer;
+    border: 0; border-radius: 9px; background: rgba(var(--ink-rgb),.14); color: var(--ink); cursor: pointer;
   }
-  .kbd button.act { background: rgba(0,0,0,.26); font-size: 17px; }
-  .kbd button.act[aria-pressed="true"] { background: rgba(255,255,255,.34); }
+  .kbd button.act { background: rgba(var(--anti-rgb),.26); font-size: 17px; }
+  .kbd button.act[aria-pressed="true"] { background: rgba(var(--ink-rgb),.92);
+                                         color: rgba(var(--anti-rgb),1); }
   /* Confirm left this grid for the bottom row, so the space bar takes the
      freed cell and the 6x5 stays exactly full. */
   .kbd button[data-n="space"] { grid-column: span 2; }
   .nameline {
     font-size: 24px; font-weight: 700; text-align: left; line-height: 1.15;
     min-height: 1.2em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-    border-bottom: 2px solid rgba(255,255,255,.28); padding-bottom: 4px; flex: none;
+    border-bottom: 2px solid rgba(var(--ink-rgb),.28); padding-bottom: 4px; flex: none;
   }
-  .panel .pname.tap { text-decoration: underline; text-decoration-color: rgba(255,255,255,.32);
+  .panel .pname.tap { text-decoration: underline; text-decoration-color: rgba(var(--ink-rgb),.32);
                       text-underline-offset: 3px; cursor: pointer; }
   .panel .pemo { font: inherit; font-size: 22px; line-height: 1; padding: 2px 4px; border: 0;
-                 border-radius: 7px; background: rgba(0,0,0,.2); color: #fff; cursor: pointer; }
+                 border-radius: 7px; background: rgba(var(--anti-rgb),.2); color: var(--ink); cursor: pointer; }
 
   /* Identity, edited from the player's own tab so nobody reads the centre
      upside down. Three views behind one strip, not three entry points: the
@@ -293,17 +314,18 @@
   .idnav button {
     font: inherit; font-size: 13px; font-weight: 700; line-height: 1; padding: 8px 10px;
     min-height: 44px; flex: 1 1 0; min-width: 0;
-    border: 0; border-radius: 8px; background: rgba(0,0,0,.26); color: #fff; cursor: pointer;
+    border: 0; border-radius: 8px; background: rgba(var(--anti-rgb),.26); color: var(--ink); cursor: pointer;
   }
-  .idnav button[aria-pressed="true"] { background: rgba(255,255,255,.34); }
+  .idnav button[aria-pressed="true"] { background: rgba(var(--ink-rgb),.92);
+                                       color: rgba(var(--anti-rgb),1); }
   .pgrid { display: grid; gap: 5px; flex: 1; min-height: 0; }
   .pgrid.emo    { grid-template-columns: repeat(6, 1fr); grid-auto-rows: minmax(0, 1fr); }
   .pgrid.colour { grid-template-columns: repeat(4, 1fr); grid-auto-rows: minmax(0, 1fr); }
   .pgrid button {
     font: inherit; font-size: 26px; line-height: 1; padding: 0; min-height: 30px;
-    border: 0; border-radius: 9px; background: rgba(255,255,255,.14); color: #fff; cursor: pointer;
+    border: 0; border-radius: 9px; background: rgba(var(--ink-rgb),.14); color: var(--ink); cursor: pointer;
   }
-  .pgrid button[aria-pressed="true"] { outline: 3px solid #fff; outline-offset: -3px; }
+  .pgrid button[aria-pressed="true"] { outline: 3px solid var(--ink); outline-offset: -3px; }
   /* The full spectrum, for when sixteen is not the right sixteen. This is
      the one native control the panel allows, and it is allowed because it
      does not break the way a text field does: iOS draws it as its own sheet,
@@ -313,7 +335,7 @@
      hatch you take knowingly. */
   .pmore {
     display: flex; align-items: center; gap: 10px; flex: none; cursor: pointer;
-    background: rgba(0,0,0,.26); border-radius: 9px; padding: 6px 10px;
+    background: rgba(var(--anti-rgb),.26); border-radius: 9px; padding: 6px 10px;
     font-size: 13px; font-weight: 700;
   }
   .pmore input {
@@ -332,7 +354,7 @@
   .keys button {
     font: inherit; font-size: 28px; font-weight: 600; padding: 4px 0; min-height: 34px;
     border-radius: 9px; border: 0; cursor: pointer;
-    background: rgba(255,255,255,.14); color: #fff; font-variant-numeric: tabular-nums;
+    background: rgba(var(--ink-rgb),.14); color: var(--ink); font-variant-numeric: tabular-nums;
   }
   .entry { font-size: 26px; font-weight: 700; text-align: right; font-variant-numeric: tabular-nums;
            line-height: 1.15; padding-right: 4px; flex: none; }
@@ -550,7 +572,7 @@ const STORE = "keepingtabs.state";
    its own build. Not a commit hash: a commit cannot contain its own hash,
    and amending one in only ever leaves it pointing at the commit before.
    The commit message names the build, so `git log --grep` maps it back. */
-const BUILD = "0901-04";
+const BUILD = "0901-05";
 
 /* Whether this context can persist at all. Private mode, a data: URL and
    a full quota all throw, and the app has to keep working regardless. */
@@ -571,6 +593,41 @@ const ANIMALS = ["\u{1F98A}","\u{1F419}","\u{1F989}","\u{1F422}","\u{1F427}","\u
                  "\u{1F988}","\u{1F987}","\u{1F418}","\u{1F433}","\u{1F980}","\u{1F991}","\u{1F40A}","\u{1F40D}",
                  "\u{1F982}","\u{1F985}","\u{1F42A}","\u{1F98F}","\u{1F438}","\u{1F994}","\u{1F995}","\u{1F407}",
                  "\u{1F98E}","\u{1F41F}","\u{1F41C}","\u{1F986}"];
+
+/* Which way round a tab's text goes. WCAG relative luminance, then the
+   contrast white would get against it.
+
+   The textbook rule flips at 0.179 luminance, where black and white draw
+   level at 4.58:1 — but applied here it would turn every tab in COLORS
+   black, because those sit just above that line by construction, and white
+   on saturated colour reads better than the arithmetic admits. So white is
+   preferred past the crossover and gives way at 3.5:1, below which the
+   preference stops being defensible. Anything that flips is therefore a
+   colour where black was already the better of the two.
+
+   This exists for the colours nobody chose from a palette: the native
+   picker offers the whole spectrum, and #FFE800 with white text on it is
+   unreadable no matter how well the sixteen defaults behave. */
+function luminance(hex) {
+  const n = parseInt(hex.slice(1), 16);
+  const f = c => { c /= 255; return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); };
+  return 0.2126 * f((n >> 16) & 255) + 0.7152 * f((n >> 8) & 255) + 0.0722 * f(n & 255);
+}
+function whiteOn(hex) { return 1.05 / (luminance(hex) + 0.05); }
+function inkIsLight(hex) {
+  return /^#[0-9a-f]{6}$/i.test(hex || "") ? whiteOn(hex) >= 3.5 : true;
+}
+
+/* Near-black rather than black: the tab is a saturated colour, and pure
+   #000 on it reads as a hole rather than as text. */
+const INK_DARK = "#141414";
+function paintInk(el, hex) {
+  const light = inkIsLight(hex);
+  el.style.setProperty("--ink", light ? "#fff" : INK_DARK);
+  el.style.setProperty("--ink-rgb", light ? "255,255,255" : "20,20,20");
+  el.style.setProperty("--anti-rgb", light ? "0,0,0" : "255,255,255");
+  el.style.setProperty("--edit", light ? "#FFD98A" : "#5C3B00");
+}
 
 /* Sixteen hues at full saturation. The old set was muted so the app would
    sit quietly on a table, but that job belongs to the ambient dim now — it
@@ -1056,6 +1113,7 @@ function render(rect) {
        buildTab and then patched by hand wherever it could change, which
        worked for exactly the one caller that remembered to do it. */
     el.style.background = p.color;
+    paintInk(el, p.color);
     el.querySelector(".emoji").textContent = p.emoji;
     el.querySelector(".who").textContent = size.len >= 150 ? p.name : p.name.split(" ")[0];
     el.querySelector(".tot").textContent = totals[p.id] || 0;
@@ -1378,6 +1436,7 @@ stage.addEventListener("input", e => {
   if (!p) return;
   p.color = e.target.value;
   p.el.style.background = p.color;
+  paintInk(p.el, p.color);
 });
 stage.addEventListener("change", e => {
   if (!e.target.matches("[data-pcmore]") || !openId) return;
@@ -1595,7 +1654,8 @@ function paintSheet() {
   if (sheetView === "game") return paintGame();
   const rows = players.map(p =>
     '<div class="prow2" data-id="' + p.id + '">' +
-      '<button class="emo" data-act="emoji" style="background:' + p.color + '" ' +
+      '<button class="emo" data-act="emoji" style="background:' + p.color +
+        ';color:' + (inkIsLight(p.color) ? "#fff" : INK_DARK) + '" ' +
         'aria-label="Choose emoji">' + p.emoji + "</button>" +
       '<input class="col" data-act="color" type="color" value="' + p.color + '" aria-label="Colour">' +
       '<button class="tsize" data-act="tsize" aria-label="Text size" title="Text size">' +
@@ -1739,7 +1799,12 @@ sheet.addEventListener("input", e => {
        (The selector used to say `input`, which this has not been since it
        became a button — so the swatch quietly stopped following.) */
     const emo = row.querySelector('button[data-act="emoji"]');
-    if (emo) emo.style.background = p.color;
+    if (emo) {
+      emo.style.background = p.color;
+      emo.style.color = inkIsLight(p.color) ? "#fff" : INK_DARK;
+    }
+    p.el.style.background = p.color;
+    paintInk(p.el, p.color);
   }
   commit();
 });
