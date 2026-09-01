@@ -337,7 +337,16 @@
     display: flex; align-items: center; gap: 10px; flex: none; cursor: pointer;
     background: rgba(var(--anti-rgb),.26); border-radius: 9px; padding: 6px 10px;
     font-size: 13px; font-weight: 700;
+    min-height: 44px; border: 0; color: var(--ink);
+    font-family: inherit; text-align: left; width: 100%;
   }
+  .pmore .swatch {
+    width: 40px; height: 30px; flex: none; font: inherit; font-size: 22px;
+    line-height: 1; text-align: center; padding: 0; border: 0; color: var(--ink);
+    border-radius: 7px; background: rgba(var(--ink-rgb),.14);
+    user-select: text; -webkit-user-select: text;
+  }
+  .pmore .swatch:focus { outline: 2px solid var(--ink); outline-offset: 1px; }
   .pmore input {
     width: 40px; height: 30px; flex: none; padding: 0; cursor: pointer;
     border: 0; border-radius: 7px; background: none; -webkit-appearance: none; appearance: none;
@@ -572,7 +581,7 @@ const STORE = "keepingtabs.state";
    its own build. Not a commit hash: a commit cannot contain its own hash,
    and amending one in only ever leaves it pointing at the commit before.
    The commit message names the build, so `git log --grep` maps it back. */
-const BUILD = "0901-05";
+const BUILD = "0901-06";
 
 /* Whether this context can persist at all. Private mode, a data: URL and
    a full quota all throw, and the app has to keep working regardless. */
@@ -1225,12 +1234,27 @@ function paintName(p) {
 }
 
 function paintEmojiGrid(p) {
-  /* No free-text field here, unlike the centre sheet: a native input in a
-     rotated panel is the thing this whole keyboard exists to avoid. The
-     sheet keeps that escape hatch for anything the grid does not carry. */
+  /* A native field, on a rotated surface, which the drawn keyboard exists
+     to avoid — allowed here by explicit decision. The rule was written for
+     NAME entry, where you type a dozen characters against a text box turned
+     ninety degrees and the awkwardness is paid over and over. Emoji is one
+     tap on a picker you are already hunting through: the keyboard lands
+     somewhere awkward once, and then you are done. Different exposure, so
+     the same rule need not bind.
+
+     It is the only way to reach an emoji outside the grid, too. There is no
+     inputmode for emoji on any platform, so nothing can summon that
+     keyboard directly — a field the player switches to it themselves is the
+     whole of the available technique. */
   return '<div class="pgrid emo">' +
     ANIMALS.map(a => '<button data-pe="' + a + '"' +
-      (a === p.emoji ? ' aria-pressed="true"' : "") + ">" + a + "</button>").join("") + "</div>";
+      (a === p.emoji ? ' aria-pressed="true"' : "") + ">" + a + "</button>").join("") + "</div>" +
+    '<label class="pmore">' +
+      '<input class="swatch" type="text" data-pemore value="' + esc(p.emoji) + '" ' +
+        'aria-label="Any character" autocomplete="off" autocorrect="off" ' +
+        'autocapitalize="off" enterkeyhint="done">' +
+      "<span>More emoji\u2026</span>" +
+    "</label>";
 }
 
 function paintColourGrid(p) {
@@ -1389,6 +1413,7 @@ stage.addEventListener("click", e => {
     return;
   }
   if (pe) { p.emoji = pe.dataset.pe; commit(); return; }
+
   if (pc) { p.color = pc.dataset.pc; commit(); return; }
 
   const n = e.target.closest("[data-n]");
@@ -1431,19 +1456,38 @@ stage.addEventListener("click", e => {
    so the tab is poked while dragging and committed once on change — the same
    bargain the sheet's picker makes. */
 stage.addEventListener("input", e => {
-  if (!e.target.matches("[data-pcmore]") || !openId) return;
+  if (!openId) return;
   const p = players.find(x => x.id === openId);
   if (!p) return;
-  p.color = e.target.value;
-  p.el.style.background = p.color;
-  paintInk(p.el, p.color);
+  if (e.target.matches("[data-pcmore]")) {
+    p.color = e.target.value;
+    p.el.style.background = p.color;
+    paintInk(p.el, p.color);
+    return;
+  }
+  /* Same bargain as the colour picker, for the same reason: repainting
+     mid-entry would destroy the focused field and take the keyboard down
+     with it. Poke what has to move, commit when the field is done. */
+  if (e.target.matches("[data-pemore]")) {
+    const g = firstGrapheme(e.target.value);
+    if (!g) return;
+    p.emoji = g;
+    p.el.querySelector(".emoji").textContent = g;
+    const navTab = p.el.querySelector('[data-v="emoji"]');
+    if (navTab) navTab.textContent = g;
+    save();
+  }
 });
 stage.addEventListener("change", e => {
-  if (!e.target.matches("[data-pcmore]") || !openId) return;
+  if (!openId) return;
   const p = players.find(x => x.id === openId);
   if (!p) return;
-  p.color = e.target.value;
-  commit();
+  if (e.target.matches("[data-pcmore]")) { p.color = e.target.value; commit(); }
+  else if (e.target.matches("[data-pemore]")) {
+    const g = firstGrapheme(e.target.value);
+    if (g) p.emoji = g;
+    commit();
+  }
 });
 
 scrim.addEventListener("click", () => { closePanel(); closeSheet(); });
