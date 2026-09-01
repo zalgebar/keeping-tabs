@@ -211,7 +211,9 @@
   /* Confirm lives here, a full row away from the digits. Moving it to the
      other end of the header would not have helped: the fault is reach,
      not eyesight, and both top corners are where thumbs already are. */
-  .prow { display: grid; grid-template-columns: 1fr 1fr 1fr 1.35fr;
+  /* The panel enters a score; the hub remembers them. With no Undo here
+     there is nothing left for Clear to be confused with. */
+  .prow { display: grid; grid-template-columns: 1fr 1fr 1.5fr;
           gap: 6px; align-items: stretch; flex: none; }
   .prow .btn2 {
     font: inherit; font-size: 15px; padding: 6px 4px; min-height: 54px;
@@ -262,6 +264,10 @@
     overflow: auto; touch-action: pan-y;
   }
   #sheet.on { display: flex; }
+  #sheet.wide {
+    width: calc(100% - 20px); max-width: none;
+    height: calc(100% - 20px); max-height: none;
+  }
   #sheet h2 { margin: 0; font-size: 12px; letter-spacing: .16em; text-transform: uppercase; color: var(--ink-dim); }
   .plist { display: flex; flex-direction: column; gap: 6px; }
   .prow2 { display: flex; align-items: center; gap: 8px; background: #232A2D; border-radius: 9px; padding: 6px 8px; }
@@ -283,17 +289,33 @@
     user-select: text; -webkit-user-select: text;
   }
   .prow2 input:focus { outline: none; border-bottom-color: var(--accent); }
-  .gridwrap { overflow: auto; max-height: 46vh; border: 1px solid var(--rule); border-radius: 9px; }
-  table.rounds { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+  /* Nothing is compacted here — this is the one view the whole roster
+     reads at once, so it keeps every emoji and every full name and
+     scrolls in both directions instead. */
+  .gridwrap { overflow: auto; flex: 1; min-height: 0;
+              border: 1px solid var(--rule); border-radius: 9px;
+              -webkit-overflow-scrolling: touch; touch-action: pan-x pan-y; }
+  table.rounds { border-collapse: separate; border-spacing: 0;
+                 width: max-content; min-width: 100%; font-variant-numeric: tabular-nums; }
   table.rounds th, table.rounds td {
-    padding: 6px 8px; text-align: right; font-size: 13px; white-space: nowrap;
+    padding: 8px 12px; text-align: right; font-size: 16px; white-space: nowrap;
     border-bottom: 1px solid var(--rule);
   }
-  table.rounds th { position: sticky; top: 0; background: #232A2D; font-size: 15px; }
-  table.rounds .rn { text-align: left; color: var(--ink-dim); font-size: 12px; }
+  table.rounds th {
+    position: sticky; top: 0; z-index: 2; background: #232A2D;
+    text-align: center; font-weight: 600; line-height: 1.2;
+  }
+  table.rounds .he { display: block; font-size: 22px; }
+  table.rounds .hn { display: block; font-size: 12px; color: var(--ink-dim); font-weight: 400; }
+  /* Round column pinned, or you lose your place scrolling sideways. */
+  table.rounds th:first-child, table.rounds td:first-child {
+    position: sticky; left: 0; z-index: 1; background: var(--hub);
+    text-align: left; color: var(--ink-dim); font-size: 13px;
+  }
+  table.rounds th:first-child { z-index: 3; background: #232A2D; }
   table.rounds tr.live td { color: var(--accent); }
-  table.rounds tr.tot td { font-weight: 700; border-bottom: 0; }
-  table.rounds tr.tot { background: #232A2D; }
+  table.rounds tr.tot td { font-weight: 700; border-bottom: 0; background: #232A2D; }
+  table.rounds tr.tot td:first-child { background: #232A2D; }
   .setting { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 2px; }
   .setting span { font-size: 13px; color: var(--ink-dim); }
   .setting .seg { flex: 0 0 auto; width: 132px; }
@@ -367,7 +389,7 @@ const STORE = "keepingtabs.state";
    its own build. Not a commit hash: a commit cannot contain its own hash,
    and amending one in only ever leaves it pointing at the commit before.
    The commit message names the build, so `git log --grep` maps it back. */
-const BUILD = "0830-9";
+const BUILD = "0830-10";
 
 /* Whether this context can persist at all. Private mode, a data: URL and
    a full quota all throw, and the app has to keep working regardless. */
@@ -908,7 +930,6 @@ function paintPanel(p) {
   const keys = p.mode === "keys";
   const pend = pendingOf();
   const shown = (totals[p.id] || 0) + pend;
-  const mine = log.filter(e => e.type === "delta" && e.playerId === p.id);
 
   const header =
     '<div class="ptop">' +
@@ -926,7 +947,6 @@ function paintPanel(p) {
     '<div class="prow">' +
       '<button class="btn2" data-act="mode">' + (keys ? "\u00b1 Pad" : "Custom") + '</button>' +
       '<button class="btn2" data-act="clear"' + (entry === "" ? " disabled" : "") + '>Clear</button>' +
-      '<button class="btn2" data-act="undo"' + (mine.length ? "" : " disabled") + '>Undo</button>' +
       '<button class="btn2 ok" data-act="ok" aria-label="Save and close">\u2713</button>' +
     '</div>';
 
@@ -1007,7 +1027,6 @@ stage.addEventListener("click", e => {
     const a = act.dataset.act;
     if (a === "ok")    confirmPanel(p);
     if (a === "clear") { entry = ""; layout(false); }
-    if (a === "undo")  { entry = ""; undoLast(p.id); }
     if (a === "mode")  { p.mode = p.mode === "keys" ? "pad" : "keys"; save(); layout(false); }
   }
 });
@@ -1158,14 +1177,17 @@ document.getElementById("arrange").addEventListener("click", e => {
 let sheetView = "players";
 function openSheet(view) {
   sheetView = view || "players";
-  sheet.classList.add("on"); scrim.classList.add("on"); paintSheet();
+  sheet.classList.add("on");
+  sheet.classList.toggle("wide", sheetView === "rounds");
+  scrim.classList.add("on"); paintSheet();
 }
 function closeSheet() { sheet.classList.remove("on"); scrim.classList.remove("on"); }
 
 function paintRounds() {
   const table = roundTable();
   const head = "<tr><th>#</th>" + players.map(pl =>
-    '<th title="' + esc(pl.name) + '">' + pl.emoji + "</th>").join("") + "</tr>";
+    "<th><span class='he'>" + pl.emoji + "</span>" +
+    "<span class='hn'>" + esc(pl.name) + "</span></th>").join("") + "</tr>";
   const body = table.map(r => '<tr><td class="rn">' + r.n + "</td>" +
       players.map(pl => "<td>" + (r.scores[pl.id] || 0) + "</td>").join("") + "</tr>").join("");
   const live = '<tr class="live"><td class="rn">' + roundNo() + "</td>" +
@@ -1258,7 +1280,7 @@ sheet.addEventListener("click", e => {
     paintSheet();
     return;
   }
-  if (act === "players") { sheetView = "players"; paintSheet(); return; }
+  if (act === "players") { sheetView = "players"; sheet.classList.remove("wide"); paintSheet(); return; }
   if (act === "reset")  { log = []; commit(); paintSheet(); return; }
   if (act === "wipe") {
     players = []; log = [];
