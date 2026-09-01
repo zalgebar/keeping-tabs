@@ -486,6 +486,7 @@
       <li><a href="#concept">The concept</a></li>
       <li><a href="#decided">Decisions already made</a></li>
       <li><a href="#playtest">Play-test feedback</a></li>
+      <li><a href="#gamefeat">Game mechanics worth adding</a></li>
       <li><a href="#mechanic">The edge-tab mechanic</a></li>
       <li><a href="#scoring">The scoring model</a></li>
       <li><a href="#v10">v1.0 — Local scope</a></li>
@@ -638,6 +639,68 @@
       <li><strong>Re-test on a phone.</strong> An iPad is a large object on a table; the same app on a phone occupies a coaster. Some part of the complaint is likely the footprint rather than the concept, and that is worth separating before concluding anything.</li>
       <li><strong>A scorekeeper mode.</strong> Panels open facing one designated seat instead of the player whose tab it is. This is the case the centred dialog rejected in M2 would have served well — it was not wrong, it was wrong for self-service entry.</li>
     </ul>
+  </section>
+
+  <section id="gamefeat">
+    <span class="tab">Mechanics</span>
+    <h2>Game mechanics worth adding</h2>
+    <p>A running test for what belongs here: <strong>a mechanic earns its place if more than one game needs it and it can be built without knowing the rules of any of them.</strong> Anything that fails the second half is a rules library wearing a feature's clothes.</p>
+
+    <h3>Settled</h3>
+    <ul>
+      <li><strong>First round is <em>n</em></strong> — built. Five Crowns numbers its eleven deals by the wild card, so its first round is 3. That is enough to score the game properly.</li>
+      <li><strong>Mapping 11, 12, 13 to J, Q, K</strong> — decided against. Anyone playing Five Crowns already reads the last three deals that way, so the mapping buys nothing and only exists for one game.</li>
+    </ul>
+
+    <h3>Candidates</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Mechanic</th><th>What it needs</th><th>Games</th><th>Read</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><strong>Teams</strong></td>
+            <td>Players grouped; the team's total is what leads, wins and shows</td>
+            <td>Spades, Euchre, Bridge, Pinochle, Canasta, pub quiz, Codenames, charades</td>
+            <td>Strongest candidate. Broad, rules-free, and pub quiz was one of the best-fitting cases in the play-test notes — and it is played in teams</td>
+          </tr>
+          <tr>
+            <td><strong>End condition</strong></td>
+            <td>Ends after <em>n</em> rounds, or when someone passes <em>n</em> points; triggers the end-of-game screen</td>
+            <td>Five Crowns (11 rounds), Yahtzee (13), Hearts (100), Gin (100), Cribbage (121), Uno (500)</td>
+            <td>Small and broad. The app currently has no way to be over</td>
+          </tr>
+          <tr>
+            <td><strong>Per-round yes/no, with a running count</strong></td>
+            <td>One flag per player per round; the count of yeses is derived and shown on the tab</td>
+            <td>Phase 10 (phase reached), Wizard / Oh Hell / Spades (bid made), Bridge (contract made)</td>
+            <td>Viable. A boolean and a derived integer, no rules encoded</td>
+          </tr>
+          <tr>
+            <td><strong>Dealer marker</strong></td>
+            <td>Whose deal it is, advancing each round</td>
+            <td>Nearly every card game</td>
+            <td>Trivial and genuinely useful. Cosmetic, so easy to defer and easy to add</td>
+          </tr>
+          <tr>
+            <td><strong>Bid, then result</strong></td>
+            <td>Two numbers per round <em>and</em> a scoring formula</td>
+            <td>Wizard, Oh Hell, Skull King, Spades, Bridge</td>
+            <td>Fails the second half of the test — the formula differs per game. This is where a rules library would start</td>
+          </tr>
+          <tr>
+            <td><strong>Named categories</strong></td>
+            <td>Several named columns per player, summed</td>
+            <td>Wingspan, Scythe, Agricola, Yahtzee's two sections</td>
+            <td>Already deferred. Needs a general custom-fields layer, not per-game definitions</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Phase 10, stated correctly</h3>
+    <p>Worth writing down because the obvious reading is wrong. The round is <strong>shared</strong> — everyone plays the same hand. What varies per player is a single yes/no: <em>did you complete your phase this hand?</em></p>
+    <p>Scoring is unaffected by that flag. Everyone records penalty points for the cards left in their hand either way, and whoever goes out completely scores zero. The flag only decides whether that player moves to the next phase or repeats the one they are on, so <strong>a player's phase is the count of their yeses, plus one</strong> — derived, never stored.</p>
+    <p>That is why it lands in the candidates rather than the rules library. Nothing above needs to know what a phase <em>is</em>.</p>
   </section>
 
   <section id="mechanic">
