@@ -17,8 +17,21 @@
     <path id="front" d="M224,272 A20,20 0 0 1 244,252 L428,252 A20,20 0 0 1 448,272 L448,572 L224,572 Z"/>
     <clipPath id="cb"><use href="#back"/></clipPath>
     <clipPath id="cf"><use href="#front"/></clipPath>
+    <!-- Spelled out as primitives rather than as feDropShadow. Inkscape does
+         not implement that shorthand, and an element carrying a filter it
+         cannot resolve renders as nothing at all - which silently took the
+         front tab and its word with it, in the one renderer that matters for
+         exporting. Browsers and macOS handled it, so it looked fine
+         everywhere it was checked. -->
     <filter id="lift" x="-25%" y="-25%" width="150%" height="150%">
-      <feDropShadow dx="0" dy="8" stdDeviation="14" flood-color="#000" flood-opacity=".5"/>
+      <feGaussianBlur in="SourceAlpha" stdDeviation="14" result="blur"/>
+      <feOffset in="blur" dy="8" result="cast"/>
+      <feFlood flood-color="#000" flood-opacity=".5" result="ink"/>
+      <feComposite in="ink" in2="cast" operator="in" result="shadow"/>
+      <feMerge>
+        <feMergeNode in="shadow"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
     </filter>
   </defs>
 
