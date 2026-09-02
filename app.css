@@ -1,0 +1,593 @@
+/* ============================================================
+   Keeping Tabs - styles
+
+   Two zones, and the rule that separates them:
+     scoring - edge-anchored, rotated, NO native inputs
+     setup   - center, unrotated, native inputs fine
+   A rotated <input> puts the iOS keyboard against a 90-degree field,
+   which is why the keypad and the alphabet in here are drawn.
+   ============================================================ */
+
+:root {
+  --depth: 80px;
+  --ground: #14181A;
+  --ink: #E8EDEA;
+  --ink-dim: #8C9A94;
+  --hub: #1D2326;
+  --rule: #2C3438;
+  --accent: #E08A4C;
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+html, body {
+  margin: 0; height: 100%; overflow: hidden;
+  overscroll-behavior: none;
+  background: var(--ground); color: var(--ink);
+  font: 15px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  touch-action: none; user-select: none; -webkit-user-select: none;
+}
+
+#probe {
+  position: fixed; top: 0; left: 0; width: 1px; height: 1px;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right)
+           env(safe-area-inset-bottom) env(safe-area-inset-left);
+  opacity: 0; pointer-events: none; z-index: -1;
+}
+/* Measures what the page can actually paint - innerHeight lies in iOS
+   standalone. A fixed inset:0 box IS the layout viewport. */
+#vp { position: fixed; inset: 0; pointer-events: none; z-index: -2; }
+
+/* ---------------- center ---------------- */
+
+/* Explicit order at the root, or DOM order decides it: #center would
+   paint over an expanding panel, and #stage would paint over nothing.
+   Inside #stage: tabs 0, lifted 10, scrim 20, open panel 30. */
+#center {
+  position: fixed; z-index: 1;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 12px;
+  padding: 12px; text-align: center;
+}
+.hub {
+  background: var(--hub); border: 1px solid var(--rule); border-radius: 12px;
+  padding: 14px; display: flex; flex-direction: column; gap: 10px;
+  min-width: 0; max-width: min(320px, 100%);
+}
+.hub h1 {
+  margin: 0; font-size: 12px; font-weight: 600; letter-spacing: .16em;
+  text-transform: uppercase; color: var(--ink-dim);
+}
+.lead { font-size: 13px; color: var(--ink-dim); line-height: 1.5; }
+.tiny {
+  font: 11px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+  background: none; border: 0; color: #59635E; cursor: pointer; padding: 2px;
+}
+.diagbox {
+  display: none; font: 11px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--ink-dim); text-align: left; white-space: pre-wrap;
+  background: #14191B; border: 1px solid var(--rule); border-radius: 8px; padding: 8px;
+}
+.diagbox.on { display: block; }
+.diagbox b { color: var(--ink); font-weight: 600; }
+.warn { color: #E5A25C; }
+.lead b { color: var(--ink); font-weight: 600; }
+
+.btn {
+  font: inherit; font-size: 14px; padding: 9px 8px; border-radius: 8px;
+  background: #262E31; color: var(--ink); border: 1px solid var(--rule);
+  cursor: pointer; min-height: 40px;
+  /* three of these share one row inside a center that is only ~222px
+     wide on a phone, so they must be allowed to shrink */
+  min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.btn:disabled { opacity: .38; }
+.btn.primary { background: var(--accent); color: #1A1005; border-color: var(--accent); font-weight: 600; }
+.btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.btns { display: flex; gap: 8px; }
+/* Two side by side get less room than a full-width one. */
+.btns .btn { flex: 1 1 0; font-size: 13px; padding-left: 4px; padding-right: 4px; }
+
+.seg { display: flex; gap: 4px; }
+.seg button {
+  flex: 1; padding: 7px 8px; font: inherit; font-size: 12px;
+  background: #262E31; color: var(--ink-dim);
+  border: 1px solid var(--rule); border-radius: 6px; cursor: pointer;
+}
+.seg button[aria-pressed="true"] { background: var(--accent); color: #1A1005; border-color: var(--accent); font-weight: 600; }
+
+/* ---------------- tabs ---------------- */
+
+#stage { position: fixed; inset: 0; pointer-events: none; z-index: 2; }
+/* Saturated tabs on black read as the game rather than the scorepad
+   beside it. Idle, the whole app desaturates and sinks back; any touch
+   wakes it. Filtering the two containers rather than each tab keeps it
+   to two composited layers, and it cannot fight the per-tab filter the
+   lifted state uses. The hub is included or it becomes the brightest
+   thing on the table while everything else recedes. */
+#stage, #center { transition: filter .7s ease; }
+body.ambient #stage, body.ambient #center { filter: saturate(.3) brightness(.62); }
+
+/* A tab is painted in a color its player chose, and since v1.0 that can
+   be any color at all — the native picker has no palette. So nothing in
+   here names white: everything is written against --ink, which render
+   flips to near-black on a color too light to carry white text. The
+   translucent fills go with it, or a white-tinted button on a yellow tab
+   would vanish while its label stayed put.
+
+     --ink       text and anything that has to be read
+     --ink-rgb   fills that RAISE a surface toward the ink
+     --anti-rgb  fills that SINK one away from it
+     --edit      the unsaved-edit highlight, which has to clear the tab too
+
+   Defaults are the white-ink case, so a tab renders correctly before
+   render has said anything about it.
+
+   One consequence worth naming: a state marked by tinting a surface
+   TOWARD the ink is a state that erodes the contrast of its own label.
+   Confirm was a .34 white wash on a colored tab, which on the amber
+   came to 2.37:1 — the most important button in the app, and the least
+   readable thing in it. So selected and primary states are filled
+   nearly solid in the ink and label themselves in the anti color
+   instead. They read as pressed far more clearly than a wash did, and
+   the contrast goes up rather than down. */
+.tab {
+  --ink: #fff;
+  --ink-rgb: 255,255,255;
+  --anti-rgb: 0,0,0;
+  --edit: #FFD98A;
+  position: absolute; top: 0; left: 0; transform-origin: 0 0;
+  pointer-events: auto; cursor: grab; color: var(--ink);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 1px; overflow: hidden;
+  border-radius: 12px 12px 0 0;
+  padding: 7px 0 17px;
+  transition: box-shadow .18s ease, filter .18s ease;
+  /* local y=0 is the INWARD edge, y=depth is the OUTER edge */
+}
+/* Bevel finish, on an overlay rather than the tab's own box-shadow which
+   the lift state owns. No shadow at the bezel: darkening the lower half
+   costs color separation, and color is a player identifier. */
+.tab::after {
+  content: ""; position: absolute; inset: 0;
+  border-radius: inherit; pointer-events: none;
+  box-shadow: inset 0 2px 0 rgba(255,255,255,.20),
+              inset 2px 0 0 rgba(255,255,255,.07),
+              inset -2px 0 0 rgba(0,0,0,.20);
+}
+.tab.lifted { cursor: grabbing; filter: brightness(1.14); box-shadow: 0 0 0 2px #fff8, 0 8px 24px #0009; z-index: 10; }
+.tab.settling { transition: transform .22s cubic-bezier(.2,.9,.3,1), width .22s cubic-bezier(.2,.9,.3,1), height .22s cubic-bezier(.2,.9,.3,1), box-shadow .18s ease, filter .18s ease; }
+/* ---- ROUND ENTRY PROTOTYPE ---- */
+.tab.strip .compact, .tab.strip .panel { display: none; }
+.tab .strip { display: none; }
+.tab.strip .strip {
+  display: flex; flex-direction: column; gap: 5px;
+  width: 100%; height: 100%; padding: 7px 8px calc(8px + var(--bleed, 0px));
+  align-items: stretch; min-height: 0;
+}
+.tab.strip { z-index: 5; }
+.strip .who2 {
+  display: flex; align-items: center; gap: 5px; flex: none;
+  font-size: 13px; font-weight: 700; line-height: 1;
+  white-space: nowrap; overflow: hidden;
+}
+.strip .val {
+  flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center;
+  font-size: 40px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums;
+  background: rgba(var(--ink-rgb),.14); border-radius: 9px;
+}
+.strip .steps { display: flex; gap: 5px; flex: none; }
+.strip .steps button {
+  flex: 1 1 0; min-width: 0; font: inherit; font-size: 26px; font-weight: 700;
+  min-height: 46px; border: 0; border-radius: 9px; cursor: pointer;
+  color: var(--ink); background: rgba(var(--anti-rgb),.26);
+}
+.strip .done {
+  flex: none; font: inherit; font-size: 24px; font-weight: 700; min-height: 46px;
+  border: 0; border-radius: 9px; cursor: pointer;
+  background: rgba(var(--ink-rgb),.92); color: rgba(var(--anti-rgb),1);
+}
+/* A confirmed player folds back to an ordinary tab, so the table can see
+   at a glance who it is still waiting on. */
+.tab.locked-in .compact { opacity: .55; }
+.tab.locked-in .bar { background: rgba(var(--ink-rgb),.9); }
+
+.tab.open { z-index: 30; box-shadow: 0 10px 40px #000b; cursor: default; }
+
+.tab .name { display: flex; align-items: baseline; gap: 5px; max-width: 100%; padding: 0 8px; line-height: 1; }
+.tab .emoji { font-size: 22px; line-height: 1; }
+.tab .who { font-size: 17px; font-weight: 600; letter-spacing: .01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tab .nums { display: flex; align-items: baseline; gap: 4px; font-variant-numeric: tabular-nums; line-height: 1; }
+.tab .tot { font-size: 30px; font-weight: 700; letter-spacing: -.02em; }
+
+.tab.t-first .who { max-width: 8ch; }
+.tab.t-emoji .who { display: none; }
+.tab.t-emoji .emoji { font-size: 24px; }
+
+/* Two markers, matched to signal strength. The star is the more
+   visible mark and carries the more important signal: the lead. The bar
+   is quieter and takes the secondary one, the last round's winner.
+   Opposite edges of the tab, so one player can hold both. */
+.tab .star { position: absolute; bottom: calc(2px + var(--bleed, 0px)); font-size: 13px; line-height: 1; display: none; color: #FFD98A; }
+.tab.leading .star { display: block; }
+.tab .bar { position: absolute; top: 3px; left: 14%; right: 14%; height: 4px;
+            border-radius: 2px; background: #FFD98A; display: none; }
+.tab.won-round .bar { display: block; }
+.tab .rnd { font-size: 16px; opacity: .78; }
+.tab.t-emoji .rnd { display: none; }
+
+/* ---------------- expanded panel (the tab, grown) ---------------- */
+
+/* display:contents so the compact rows participate in the tab's own
+   flex column. Must be a rule, not an inline style, or it outranks
+   the hide-when-open below. */
+.tab .compact { display: contents; }
+.tab.open .compact { display: none; }
+.panel { display: none; }
+.tab.open .panel {
+  display: flex; flex-direction: column; gap: 6px;
+  width: 100%; height: 100%; padding: 8px 12px calc(10px + var(--bleed, 0px));
+  align-items: stretch; min-height: 0;
+}
+.panel .ptop { display: flex; align-items: center; gap: 8px; flex: none; line-height: 1; }
+/* Emoji and name are one control, not two. They were a 30x26 button beside
+   a 17pt-tall strip, both sitting directly above the pad — small enough
+   that a thumb aiming at a score could not reliably tell which of the
+   three things under it it was about to hit. Now it is one target, one
+   destination, and tall enough to be chosen on purpose. Emoji and color
+   are reached from the strip once you are inside, so the header does not
+   have to offer three doors. */
+.panel .pid {
+  display: flex; align-items: center; gap: 8px; flex: 1 1 0; min-width: 0;
+  font: inherit; font-size: 17px; font-weight: 700; text-align: left;
+  min-height: 44px; padding: 4px 10px; border: 0; border-radius: 9px;
+  background: rgba(var(--anti-rgb),.2); color: var(--ink); cursor: pointer;
+}
+.panel .pidemo { font-size: 22px; line-height: 1; flex: none; }
+.panel .pname { flex: 1; min-width: 0; text-align: left;
+                white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tab.size-large .panel .pid { min-height: 54px; }
+/* Even halves. The name used to take the whole row and leave the score
+   whatever was left, which had it backwards: the panel exists to enter a
+   score, and the name is the door out of it. Centered rather than ranged
+   right for the same reason the rounds table is — a decimal column is
+   correct for a ledger and wrong for a scorepad. */
+.panel .ptotwrap { display: flex; flex-direction: column; align-items: center;
+                   justify-content: center; gap: 1px; flex: 1 1 0; min-width: 0;
+                   /* Same padding as .pid, or the halves are not halves:
+                      a zero flex-basis is a CONTENT-box zero, so .pid's
+                      20px of padding lands on top of its share and the
+                      split comes out 179/159 instead of 169/169. */
+                   padding: 4px 10px; }
+.panel .plab {
+  font-size: 10px; letter-spacing: .12em; text-transform: uppercase;
+  opacity: .62; line-height: 1; font-weight: 600;
+}
+.panel .ptot { font-size: 32px; font-weight: 700; letter-spacing: -.02em;
+               font-variant-numeric: tabular-nums; line-height: 1; }
+/* Unsaved edit. The number itself carries the state, so there is no
+   second figure to read. */
+.panel .ptot.edited { color: var(--edit); }
+/* The pending delta, shown the way a tab shows round-then-total. */
+.panel .pend { font-size: 17px; font-weight: 600; opacity: .85; font-variant-numeric: tabular-nums; }
+/* Both grids flex to fill the panel rather than stacking to a fixed
+   height. A fixed stack overflowed on a side panel, and `overflow:
+   hidden` quietly clipped the confirm button. */
+/* Two rows, against the keypad's four and the alphabet's five — so on a
+   tablet's depth this is the one grid that runs away, and a 260pt button
+   is not a more hittable button than a 150pt one. Cap the row and center
+   what is left over rather than distributing it into the buttons. */
+.pad { display: grid; grid-template-columns: repeat(3, 1fr);
+       grid-template-rows: repeat(2, minmax(0, 150px)); gap: 6px;
+       align-content: center; flex: 1; min-height: 0; }
+.tab.size-large .pad { grid-template-rows: repeat(2, minmax(0, 180px)); }
+.pad button {
+  font: inherit; font-size: 26px; font-weight: 700; padding: 6px 0; min-height: 40px;
+  border-radius: 9px; border: 0; cursor: pointer;
+  background: rgba(var(--ink-rgb),.16); color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.pad button.minus { background: rgba(var(--anti-rgb),.26); }
+.pad button:active { background: rgba(var(--ink-rgb),.34); }
+/* Confirm lives here, a full row away from the digits. Moving it to the
+   other end of the header would not have helped: the fault is reach,
+   not eyesight, and both top corners are where thumbs already are.
+   Which is why EVERY view puts it here — score, name, emoji, color.
+   Confirm keeps one address in this app: bottom row, hard right. It
+   simply grows leftward in the views with less to sit beside it, so a
+   view with nothing else gets a full-width one.
+
+   The panel enters a score; the hub remembers them. With no Undo here
+   there is nothing left for Clear to be confused with. */
+.prow { display: flex; gap: 6px; align-items: stretch; flex: none; }
+.prow .btn2 {
+  font: inherit; font-size: 15px; padding: 6px 4px; min-height: 54px;
+  flex: 1 1 0; min-width: 0;
+  border-radius: 9px; border: 0; cursor: pointer;
+  background: rgba(var(--anti-rgb),.24); color: var(--ink);
+}
+.prow .btn2:disabled { opacity: .4; }
+.prow .btn2.ok { background: rgba(var(--ink-rgb),.92); color: rgba(var(--anti-rgb),1);
+                 font-size: 26px; font-weight: 700; flex: 1.5 1 0; }
+
+/* Per-player type size, because hands differ around one table. */
+.tab.size-large .pad button    { font-size: 42px; }
+.tab.size-large .keys button   { font-size: 44px; }
+.tab.size-large .prow .btn2    { font-size: 21px; min-height: 68px; }
+.tab.size-large .prow .btn2.ok { font-size: 38px; }
+.tab.size-large .panel .ptot   { font-size: 46px; }
+.tab.size-large .panel .pname  { font-size: 24px; }
+.tab.size-large .kbd button    { font-size: 30px; }
+.tab.size-large .nameline      { font-size: 34px; }
+
+/* Alphabet, drawn for the same reason as the keypad: a native field in a
+   rotated panel puts the keyboard against a 90-degree text box, and no
+   platform lets a web page force the device to rotate — Safari has no
+   screen.orientation.lock() and iOS ignores the manifest's orientation
+   field. Six columns rather than QWERTY's ten, because 52px keys beat
+   31px ones for something typed once. */
+.kbd {
+  display: grid; grid-template-columns: repeat(6, 1fr);
+  grid-template-rows: repeat(5, minmax(0, 1fr)); gap: 5px; flex: 1; min-height: 0;
+}
+.kbd button {
+  font: inherit; font-size: 21px; font-weight: 600; padding: 0; min-height: 34px;
+  border: 0; border-radius: 9px; background: rgba(var(--ink-rgb),.14); color: var(--ink); cursor: pointer;
+}
+.kbd button.act { background: rgba(var(--anti-rgb),.26); font-size: 17px; }
+.kbd button.act[aria-pressed="true"] { background: rgba(var(--ink-rgb),.92);
+                                       color: rgba(var(--anti-rgb),1); }
+/* Confirm left this grid for the bottom row, so the space bar takes the
+   freed cell and the 6x5 stays exactly full. */
+.kbd button[data-n="space"] { grid-column: span 2; }
+.nameline {
+  font-size: 24px; font-weight: 700; text-align: left; line-height: 1.15;
+  min-height: 1.2em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  border-bottom: 2px solid rgba(var(--ink-rgb),.28); padding-bottom: 4px; flex: none;
+}
+
+/* Identity, edited from the player's own tab so nobody reads the center
+   upside down. Three views behind one strip, not three entry points: the
+   panel is 370px on its long side and the round total already owns a third
+   of the header. Every control is drawn, same rule as the keypad and the
+   alphabet. */
+.idnav { display: flex; gap: 5px; flex: 1; min-width: 0; }
+.idnav button {
+  font: inherit; font-size: 13px; font-weight: 700; line-height: 1; padding: 8px 10px;
+  min-height: 44px; flex: 1 1 0; min-width: 0;
+  border: 0; border-radius: 8px; background: rgba(var(--anti-rgb),.26); color: var(--ink); cursor: pointer;
+}
+.idnav button[aria-pressed="true"] { background: rgba(var(--ink-rgb),.92);
+                                     color: rgba(var(--anti-rgb),1); }
+.pgrid { display: grid; gap: 5px; flex: 1; min-height: 0; }
+.pgrid.emo    { grid-template-columns: repeat(6, 1fr); grid-auto-rows: minmax(0, 1fr); }
+.pgrid.color { grid-template-columns: repeat(4, 1fr); grid-auto-rows: minmax(0, 1fr); }
+.pgrid button {
+  font: inherit; font-size: 26px; line-height: 1; padding: 0; min-height: 30px;
+  border: 0; border-radius: 9px; background: rgba(var(--ink-rgb),.14); color: var(--ink); cursor: pointer;
+}
+.pgrid button[aria-pressed="true"] { outline: 3px solid var(--ink); outline-offset: -3px; }
+/* The full spectrum, for when sixteen is not the right sixteen. This is
+   the one native control the panel allows, and it is allowed because it
+   does not break the way a text field does: iOS draws it as its own sheet,
+   untouched by the panel's transform. It still opens in DEVICE orientation
+   though, so for the player across the table it arrives upside down. Hence
+   the split — the grid faces you and is one tap, and this is the escape
+   hatch you take knowingly. */
+.pmore {
+  display: flex; align-items: center; gap: 10px; flex: none; cursor: pointer;
+  background: rgba(var(--anti-rgb),.26); border-radius: 9px; padding: 6px 10px;
+  font-size: 13px; font-weight: 700;
+  min-height: 44px; border: 0; color: var(--ink);
+  font-family: inherit; text-align: left; width: 100%;
+}
+.pmore .swatch {
+  width: 40px; height: 30px; flex: none; font: inherit; font-size: 22px;
+  line-height: 1; text-align: center; padding: 0; border: 0; color: var(--ink);
+  border-radius: 7px; background: rgba(var(--ink-rgb),.14);
+  user-select: text; -webkit-user-select: text;
+}
+.pmore .swatch:focus { outline: 2px solid var(--ink); outline-offset: 1px; }
+.pmore input {
+  width: 40px; height: 30px; flex: none; padding: 0; cursor: pointer;
+  border: 0; border-radius: 7px; background: none; -webkit-appearance: none; appearance: none;
+}
+.pmore input::-webkit-color-swatch-wrapper { padding: 0; }
+.pmore input::-webkit-color-swatch { border: 0; border-radius: 7px; }
+.tab.size-large .pmore { font-size: 18px; }
+.tab.size-large .pgrid button { font-size: 36px; }
+.tab.size-large .idnav button { font-size: 18px; }
+
+/* keypad - drawn, never a native input, because the panel is rotated */
+.keys { display: grid; grid-template-columns: repeat(3, 1fr);
+        grid-template-rows: repeat(4, minmax(0, 1fr)); gap: 6px; flex: 1; min-height: 0; }
+.keys button {
+  font: inherit; font-size: 28px; font-weight: 600; padding: 4px 0; min-height: 34px;
+  border-radius: 9px; border: 0; cursor: pointer;
+  background: rgba(var(--ink-rgb),.14); color: var(--ink); font-variant-numeric: tabular-nums;
+}
+.entry { font-size: 26px; font-weight: 700; text-align: right; font-variant-numeric: tabular-nums;
+         line-height: 1.15; padding-right: 4px; flex: none; }
+/* Confirm lives on the INWARD edge, never the outer one: the bottom of a
+   panel is where the bleed and the home indicator are. */
+
+
+/* Inside #stage, not beside it. `position: fixed` on #stage creates a
+   stacking context, so an open tab's z-index only competes with its
+   siblings — a scrim outside #stage paints over every tab no matter
+   what z-index the tab carries. */
+#scrim { position: fixed; inset: 0; background: #000; opacity: 0; pointer-events: none;
+         transition: opacity .2s ease; z-index: 20; }
+#scrim.on { opacity: .55; pointer-events: auto; }
+
+/* ---------------- sheet (center, unrotated) ---------------- */
+
+#sheet {
+  position: fixed; z-index: 40; left: 50%; top: 50%; transform: translate(-50%,-50%);
+  width: min(360px, calc(100% - 32px)); max-height: min(560px, calc(100% - 40px));
+  background: var(--hub); border: 1px solid var(--rule); border-radius: 14px;
+  padding: 14px; display: none; flex-direction: column; gap: 10px;
+  overflow: auto; touch-action: pan-y;
+}
+#sheet.on { display: flex; }
+#sheet.wide {
+  width: calc(100% - 20px); max-width: none;
+  height: calc(100% - 20px); max-height: none;
+}
+#sheet h2 { margin: 0; font-size: 12px; letter-spacing: .16em; text-transform: uppercase; color: var(--ink-dim); }
+.plist { display: flex; flex-direction: column; gap: 6px; }
+.prow2 { display: flex; align-items: center; gap: 8px; background: #232A2D; border-radius: 9px; padding: 6px 8px; }
+/* Emoji doubles as the color swatch: one control shows both. */
+.prow2 .emo {
+  width: 42px; height: 42px; flex: none; border-radius: 9px; border: 0;
+  text-align: center; font-size: 21px; line-height: 1; color: #fff;
+  padding: 0; cursor: pointer;
+}
+.prow2 button.emo { display: flex; align-items: center; justify-content: center; }
+.prow2 .col {
+  width: 34px; height: 34px; flex: none; padding: 0; cursor: pointer;
+  border: 1px solid var(--rule); border-radius: 8px; background: transparent;
+}
+.prow2 .col::-webkit-color-swatch-wrapper { padding: 2px; }
+.prow2 .col::-webkit-color-swatch { border: 0; border-radius: 6px; }
+.prow2 input {
+  flex: 1; min-width: 0; font: inherit; font-size: 15px; color: var(--ink);
+  background: transparent; border: 0; border-bottom: 1px solid var(--rule); padding: 5px 2px;
+  user-select: text; -webkit-user-select: text;
+}
+.prow2 input:focus { outline: none; border-bottom-color: var(--accent); }
+/* Nothing is compacted here — this is the one view the whole roster
+   reads at once, so it keeps every emoji and every full name and
+   scrolls in both directions instead. */
+.gridwrap { overflow: auto; flex: 1; min-height: 0;
+            border: 1px solid var(--rule); border-radius: 9px;
+            -webkit-overflow-scrolling: touch; touch-action: pan-x pan-y; }
+/* Every player column the same width, set by JS to the widest of them.
+   Content-sized columns make one long name widen its own column and
+   nothing else, so a table of four players reads as four different
+   grids. --rcol-max is the ceiling one very long name may push the rest
+   to; past it that name ellipsises rather than dragging everybody wide.
+   It lives here rather than in the script so the breakpoint below stays
+   the only place that knows about screen size. */
+table.rounds { border-collapse: separate; border-spacing: 0;
+               width: max-content; min-width: 100%; font-variant-numeric: tabular-nums;
+               --rcol-max: 150px; }
+table.rounds th:not(:first-child),
+table.rounds td:not(:first-child) { width: var(--rcol, auto); }
+/* Centered, not right-aligned. A decimal column is correct for a ledger
+   and wrong here — a scorepad puts the number under the name. */
+table.rounds th, table.rounds td {
+  padding: 8px 12px; text-align: center; font-size: 16px; white-space: nowrap;
+  border-bottom: 1px solid var(--rule);
+}
+table.rounds th {
+  position: sticky; top: 0; z-index: 2; background: #232A2D;
+  text-align: center; font-weight: 600; line-height: 1.2;
+}
+table.rounds .he { display: block; font-size: 22px; }
+table.rounds .hn { display: block; font-size: 12px; color: var(--ink-dim); font-weight: 400;
+                   overflow: hidden; text-overflow: ellipsis; }
+/* Round column pinned, or you lose your place scrolling sideways. */
+table.rounds th:first-child, table.rounds td:first-child {
+  position: sticky; left: 0; z-index: 1; background: var(--hub);
+  text-align: left; color: var(--ink-dim); font-size: 13px;
+  /* Needs a width of its own. The table is min-width: 100%, and auto
+     layout hands every surplus pixel to whichever column did not ask for
+     a size — which was this one, at 288px of empty gutter beside four
+     210px columns. */
+  width: 44px;
+}
+table.rounds th:first-child { z-index: 3; background: #232A2D; }
+table.rounds tr.live td { color: var(--accent); }
+table.rounds tr.tot td { font-weight: 700; border-bottom: 0; background: #232A2D; }
+table.rounds tr.tot td:first-child { background: #232A2D; }
+/* The rounds table is sized for a phone, where it is right and where the
+   names column has to survive a lot of players. A tablet or a desktop has
+   the room and was getting the phone's type anyway, read from further
+   away. Both dimensions have to clear the bar, or an iPhone in landscape
+   — wider than 700 and nowhere near as tall — would take the tablet
+   sizing it has no height for. Floor is 17px, the name size in a Small
+   scoring panel. */
+@media (min-width: 700px) and (min-height: 700px) {
+  table.rounds th, table.rounds td { font-size: 19px; padding: 10px 14px; }
+  table.rounds .he { font-size: 26px; }
+  table.rounds .hn { font-size: 17px; }
+  table.rounds th:first-child, table.rounds td:first-child { font-size: 15px; }
+  table.rounds { --rcol-max: 210px; }
+  table.rounds th:first-child, table.rounds td:first-child { width: 56px; }
+}
+
+.setting { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 2px; }
+.setting span { font-size: 13px; color: var(--ink-dim); }
+.setting .seg { flex: 0 0 auto; width: 132px; }
+.stepper { display: flex; align-items: center; gap: 4px; flex: 0 0 auto; }
+.stepper button {
+  width: 40px; height: 36px; font: inherit; font-size: 18px; cursor: pointer;
+  background: #262E31; color: var(--ink); border: 1px solid var(--rule); border-radius: 7px;
+}
+.stepper b { min-width: 40px; text-align: center; font-variant-numeric: tabular-nums; font-size: 17px; }
+/* Emoji is chosen from a popup, not typed into a field. There is no way
+   to force the emoji keyboard on any OS — no inputmode value, nothing on
+   iOS or Android — so a picker we draw is the only reliable answer. The
+   field is still there for anyone who wants an emoji we did not list. */
+#emopop {
+  position: fixed; z-index: 50; left: 50%; top: 50%; transform: translate(-50%,-50%);
+  width: min(360px, calc(100% - 24px)); max-height: min(72%, 560px);
+  background: var(--hub); border: 1px solid var(--rule); border-radius: 14px;
+  padding: 14px; display: none; flex-direction: column; gap: 10px;
+  overflow: auto; touch-action: pan-y;
+}
+#emopop.on { display: flex; }
+#emopop h2 { margin: 0; font-size: 12px; letter-spacing: .16em; text-transform: uppercase; color: var(--ink-dim); }
+.egrid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
+.egrid button {
+  aspect-ratio: 1; font-size: 26px; line-height: 1; border: 0; border-radius: 9px;
+  background: #232A2D; cursor: pointer; padding: 0;
+}
+.egrid button[aria-pressed="true"] { outline: 2px solid var(--accent); outline-offset: -2px; }
+.custom { display: flex; gap: 8px; align-items: center; }
+.custom input {
+  flex: 1; min-width: 0; font: inherit; font-size: 22px; text-align: center;
+  color: var(--ink); background: #232A2D; border: 1px solid var(--rule);
+  border-radius: 9px; padding: 8px; user-select: text; -webkit-user-select: text;
+}
+.prow2 .tsize {
+  width: 34px; height: 34px; flex: none; border-radius: 8px; cursor: pointer;
+  border: 1px solid var(--rule); background: #262E31; color: var(--ink);
+  font-weight: 700; line-height: 1; font-size: 15px;
+}
+.prow2 .kill { width: 34px; height: 34px; border-radius: 8px; border: 0; cursor: pointer;
+               background: transparent; color: var(--ink-dim); font-size: 17px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .tab, .tab.settling, #scrim { transition: none; }
+}
+
+/* Large's panel travels from 386pt on a phone to 680pt on an iPad, so its
+   type travels with it: a size that suits the small end is lost at the
+   large one. Sized against the panel's own short side, floored at the
+   fixed sizes above so the phone is exactly what those say, and capped
+   where glyphs stop earning their space. Small needs none of this — it is
+   one fixed 370 x 340 box everywhere, so its fixed sizes are already
+   right everywhere.
+   Behind @supports because an unknown unit would void the whole
+   declaration — without the guard, a browser without container queries
+   would fall back past these to the browser default rather than to the
+   px sizes. Last in the stylesheet on purpose: these tie on specificity
+   with the fixed sizes they override, so they win on order alone, and
+   sitting anywhere else means silently losing to whichever block was
+   declared later. That is exactly how .keys was missed the first time. */
+@supports (font-size: 1cqmin) {
+  .panel { container-type: size; }
+  .tab.size-large .pad button    { font-size: clamp(42px, 8cqmin, 60px); }
+  .tab.size-large .keys button   { font-size: clamp(44px, 7.6cqmin, 58px); }
+  .tab.size-large .kbd button    { font-size: clamp(30px, 5.6cqmin, 44px); }
+  .tab.size-large .pgrid button  { font-size: clamp(36px, 7cqmin, 54px); }
+  .tab.size-large .panel .ptot   { font-size: clamp(46px, 8.6cqmin, 64px); }
+  .tab.size-large .panel .pname  { font-size: clamp(24px, 4.4cqmin, 34px); }
+  .tab.size-large .nameline      { font-size: clamp(34px, 6.4cqmin, 48px); }
+  .tab.size-large .prow .btn2    { font-size: clamp(21px, 4.2cqmin, 32px); }
+  .tab.size-large .prow .btn2.ok { font-size: clamp(38px, 7cqmin, 54px); }
+  .tab.size-large .idnav button  { font-size: clamp(18px, 3.6cqmin, 27px); }
+  .tab.size-large .pmore         { font-size: clamp(18px, 3.6cqmin, 27px); }
+}

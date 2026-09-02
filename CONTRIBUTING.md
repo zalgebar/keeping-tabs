@@ -21,9 +21,32 @@ issue is where the reasoning lives; the commit is only the change.
 
 | Path | Holds |
 | --- | --- |
-| `index.html` | The app. Root, because Pages serves from the root of `main`. |
-| `ref/` | The product plan and anything else for reading, not shipping. |
+| `index.html` | Markup only. Root, because Pages serves from the root of `main`. |
+| `app.css` | Every style. |
+| `app.js` | The whole program. |
+| `ref/` | The plan, the play-test checklist, anything for reading rather than shipping. |
 | `vendor/` | Vendored ESM dependencies, committed deliberately. |
+
+`app.js` is a **classic script, not a module**. That is the reason it is one
+file: without a build step, splitting it further means either ES modules —
+which browsers refuse to load over `file://`, so `index.html` would stop
+opening from disk — or several classic scripts sharing one global scope in a
+load order nothing enforces. Neither is worth it at this size. Its sections
+are marked with banner comments; if it outgrows them, split it then and
+accept the constraint knowingly.
+
+## Running it locally
+
+Open `index.html` from disk and it works. For anything touching storage,
+serve it instead — `localStorage` is unavailable on `file://`, so the app
+reports `no storage` and nothing persists:
+
+```
+python3 -m http.server 8137
+```
+
+Then <http://127.0.0.1:8137/>. Persistence, reloads and the PWA manifest all
+need a real origin.
 
 ## Ground rules
 
@@ -31,6 +54,8 @@ issue is where the reasoning lives; the commit is only the change.
 - **No CDN imports.** Vendor dependencies into the repo, or offline breaks
   and the PWA loses its point.
 - **`.nojekyll` stays.** Pages must not run Jekyll over these files.
+- **Three files ship.** A service worker (#25) has to precache `index.html`,
+  `app.css` and `app.js`, not just the one.
 
 ## Milestones
 
