@@ -13,13 +13,20 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <title>Keeping Tabs</title>
-<!-- Two marks, because they are read at different sizes. favicon.svg and
-     favicon.ico carry no letters: at 16px a glyph is four grey pixels.
-     Everything a launcher shows is big enough for initials, so those come
-     from ref/appicon.svg, which is also where icon-192 and icon-512 come
-     from when the manifest lands (#25). -->
-<link rel="icon" href="favicon.ico" sizes="16x16 32x32 48x48 64x64">
-<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<!-- Two marks, because they are read at different sizes. favicon.ico
+     carries no letters: at 16px a glyph is four grey pixels. Everything a
+     launcher shows is big enough for initials, so those come from
+     ref/appicon.svg, which is also where icon-192 and icon-512 come from
+     when the manifest lands (#25).
+
+     No SVG icon here on purpose. iPadOS Safari showed no favicon at all -
+     a derived "Z" in the tab bar and a globe in the bookmarks bar - while
+     macOS Safari, same engine and same files, was fine. The difference
+     between them is SVG favicon support: WebKit picks the best candidate,
+     and where it picks one it cannot decode it renders nothing rather than
+     falling back. favicon.svg still exists as the source the .ico frames
+     are cut from; it is just not offered to browsers. See #58. -->
+<link rel="icon" href="favicon.ico" sizes="32x32">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 
 <!-- og:image must be absolute. A relative path silently fails on most
