@@ -35,6 +35,24 @@ load order nothing enforces. Neither is worth it at this size. Its sections
 are marked with banner comments; if it outgrows them, split it then and
 accept the constraint knowingly.
 
+## The build number stamps itself
+
+`BUILD` in `app.js` is what the hub prints, and what you read off a screen
+mid-game to confirm a device is running what you think it is. A pre-commit
+hook stamps it, so it identifies the **deploy** rather than the script — when
+it was edited by hand it only moved if `app.js` moved, so a commit touching
+only `index.html` or an icon shipped while the hub kept reporting the
+previous build.
+
+Hooks are not cloned. Once per checkout:
+
+```
+git config core.hooksPath .githooks
+```
+
+`MMDD-NN`, sequence restarting each day. Deliberately not the git hash: it
+has to be readable off a tab across a table.
+
 ## Running it locally
 
 Open `index.html` from disk and it works. For anything touching storage,

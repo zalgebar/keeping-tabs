@@ -1,0 +1,28 @@
+#!/bin/bash
+# Stamp BUILD on every commit, whatever the commit touches.
+#
+# The number is read off the hub during a play-test to confirm the device is
+# running what you think it is. It used to be edited by hand, which meant it
+# tracked app.js rather than the deploy: change only index.html or an icon and
+# the hub kept reporting the previous build while the site had moved on.
+#
+# MMDD-NN, sequence restarting each day. Not the git hash: the point is that
+# someone can read it off a screen across a table.
+set -e
+f="app.js"
+[ -f "$f" ] || exit 0
+
+today=$(date +%m%d)
+cur=$(sed -n 's/.*const BUILD = "\([^"]*\)".*/\1/p' "$f" | head -1)
+
+if [[ "$cur" == "$today"-* ]]; then
+  n=$((10#${cur#*-} + 1))          # 10# or a leading zero is read as octal
+else
+  n=1
+fi
+new=$(printf '%s-%02d' "$today" "$n")
+
+[ "$cur" = "$new" ] && exit 0
+perl -pi -e "s/const BUILD = \"[^\"]*\"/const BUILD = \"$new\"/" "$f"
+git add "$f"
+echo "build $cur -> $new"
