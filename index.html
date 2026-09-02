@@ -479,8 +479,18 @@
   .gridwrap { overflow: auto; flex: 1; min-height: 0;
               border: 1px solid var(--rule); border-radius: 9px;
               -webkit-overflow-scrolling: touch; touch-action: pan-x pan-y; }
+  /* Every player column the same width, set by JS to the widest of them.
+     Content-sized columns make one long name widen its own column and
+     nothing else, so a table of four players reads as four different
+     grids. --rcol-max is the ceiling one very long name may push the rest
+     to; past it that name ellipsises rather than dragging everybody wide.
+     It lives here rather than in the script so the breakpoint below stays
+     the only place that knows about screen size. */
   table.rounds { border-collapse: separate; border-spacing: 0;
-                 width: max-content; min-width: 100%; font-variant-numeric: tabular-nums; }
+                 width: max-content; min-width: 100%; font-variant-numeric: tabular-nums;
+                 --rcol-max: 150px; }
+  table.rounds th:not(:first-child),
+  table.rounds td:not(:first-child) { width: var(--rcol, auto); }
   /* Centered, not right-aligned. A decimal column is correct for a ledger
      and wrong here — a scorepad puts the number under the name. */
   table.rounds th, table.rounds td {
@@ -492,11 +502,17 @@
     text-align: center; font-weight: 600; line-height: 1.2;
   }
   table.rounds .he { display: block; font-size: 22px; }
-  table.rounds .hn { display: block; font-size: 12px; color: var(--ink-dim); font-weight: 400; }
+  table.rounds .hn { display: block; font-size: 12px; color: var(--ink-dim); font-weight: 400;
+                     overflow: hidden; text-overflow: ellipsis; }
   /* Round column pinned, or you lose your place scrolling sideways. */
   table.rounds th:first-child, table.rounds td:first-child {
     position: sticky; left: 0; z-index: 1; background: var(--hub);
     text-align: left; color: var(--ink-dim); font-size: 13px;
+    /* Needs a width of its own. The table is min-width: 100%, and auto
+       layout hands every surplus pixel to whichever column did not ask for
+       a size — which was this one, at 288px of empty gutter beside four
+       210px columns. */
+    width: 44px;
   }
   table.rounds th:first-child { z-index: 3; background: #232A2D; }
   table.rounds tr.live td { color: var(--accent); }
@@ -514,6 +530,8 @@
     table.rounds .he { font-size: 26px; }
     table.rounds .hn { font-size: 17px; }
     table.rounds th:first-child, table.rounds td:first-child { font-size: 15px; }
+    table.rounds { --rcol-max: 210px; }
+    table.rounds th:first-child, table.rounds td:first-child { width: 56px; }
   }
 
   .setting { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 2px; }
@@ -653,7 +671,7 @@ const STORE = "keepingtabs.state";
    its own build. Not a commit hash: a commit cannot contain its own hash,
    and amending one in only ever leaves it pointing at the commit before.
    The commit message names the build, so `git log --grep` maps it back. */
-const BUILD = "0901-11";
+const BUILD = "0901-12";
 
 /* Whether this context can persist at all. Private mode, a data: URL and
    a full quota all throw, and the app has to keep working regardless. */
@@ -1877,6 +1895,44 @@ function paintRounds() {
       '<button class="btn" data-act="players">Players</button>' +
       '<button class="btn" data-act="done">Done</button>' +
     "</div>";
+  requestAnimationFrame(sizeRoundsColumns);
+}
+
+/* One width for every player column, worked out rather than left to the
+   browser. Auto layout gives leftover space to whichever column asked for
+   the least, which put a 219px gutter under "#" beside four equal columns —
+   so the fill is computed here instead: take the widest column's content,
+   cap it so one long name cannot drag the rest wide, then widen to the
+   share that fills the wrapper when there is room to. Too many players and
+   the share goes below the content width, at which point the table scrolls,
+   which is what it is in a scroller for.
+
+   A frame late on purpose: nothing in the sheet has a width until the sheet
+   is laid out, and a zero means it is not yet — in which case leave the
+   columns alone rather than pinning them to nothing. */
+function sizeRoundsColumns() {
+  const t = sheet.querySelector("table.rounds");
+  if (!t) return;
+  const n = players.length;
+  if (!n) return;
+  t.style.removeProperty("--rcol");
+  /* The stretch has to come off to measure content: with min-width: 100%
+     still on, what gets measured is the stretch and every table of short
+     names comes back at the cap. */
+  t.style.minWidth = "0";
+  let w = 0;
+  t.querySelectorAll("th:not(:first-child), td:not(:first-child)")
+   .forEach(c => { w = Math.max(w, c.getBoundingClientRect().width); });
+  const first = t.querySelector("tr:first-child th:first-child");
+  const roundW = first ? first.getBoundingClientRect().width : 0;
+  const avail = t.parentElement.clientWidth;
+  t.style.removeProperty("min-width");
+  if (!w) return;
+  const cap = parseFloat(getComputedStyle(t).getPropertyValue("--rcol-max")) || 210;
+  const fair = (avail - roundW) / n;
+  /* Floored, so a rounded-up share cannot overflow into a scrollbar the
+     table does not need. */
+  t.style.setProperty("--rcol", Math.floor(Math.max(Math.min(w, cap), fair)) + "px");
 }
 
 function paintSheet() {
@@ -2048,7 +2104,12 @@ document.getElementById("manage").addEventListener("click", openSheet);
 let resizeTimer;
 window.addEventListener("resize", () => {
   clearTimeout(resizeTimer);
-  resizeTimer = setTimeout(() => { readSafeInsets(); layout(true); }, 80);
+  resizeTimer = setTimeout(() => {
+    readSafeInsets(); layout(true);
+    /* The breakpoint changes the type size, which changes what "widest"
+       means, so the columns have to be measured again. */
+    if (sheetView === "rounds" && sheet.classList.contains("on")) sizeRoundsColumns();
+  }, 80);
 });
 window.addEventListener("orientationchange", () =>
   setTimeout(() => { readSafeInsets(); layout(true); }, 250));
