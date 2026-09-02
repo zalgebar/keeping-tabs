@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <title>Keeping Tabs</title>
+
+  <!-- The wordmark without the words. At 16px "Keeping" is four grey pixels,
+       so the mark has to be the two tabs alone: one blue behind, one red in
+       front and lower, both running off the bottom edge.
+
+       The front tab is separated by a stroke in the ground color rather than
+       by the drop shadow the large art uses. A blur is mud at 16px; a hard
+       3px gap survives all the way down and still reads as depth. -->
+
+  <defs>
+    <path id="back"  d="M6,17  A5,5 0 0 1 11,12 L33,12 A5,5 0 0 1 38,17 L38,70 L6,70  Z"/>
+    <path id="front" d="M28,31 A5,5 0 0 1 33,26 L53,26 A5,5 0 0 1 58,31 L58,70 L28,70 Z"/>
+    <clipPath id="cb"><use href="#back"/></clipPath>
+    <clipPath id="cf"><use href="#front"/></clipPath>
+  </defs>
+
+  <rect width="64" height="64" fill="#14181A"/>
+
+  <g>
+    <use href="#back" fill="#007EED"/>
+    <g clip-path="url(#cb)">
+      <rect x="6" y="12" width="32" height="2" fill="#fff" opacity=".22"/>
+      <rect x="36" y="12" width="2" height="58" fill="#000" opacity=".20"/>
+    </g>
+  </g>
+
+  <g>
+    <use href="#front" fill="#FB1900" stroke="#14181A" stroke-width="6"/>
+    <use href="#front" fill="#FB1900"/>
+    <g clip-path="url(#cf)">
+      <rect x="28" y="26" width="30" height="2" fill="#fff" opacity=".22"/>
+      <rect x="56" y="26" width="2" height="44" fill="#000" opacity=".20"/>
+    </g>
+  </g>
+</svg>
