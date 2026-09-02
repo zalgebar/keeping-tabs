@@ -513,6 +513,7 @@
     <div class="note">
       <span class="label">Design principle</span>
       <p><strong>The app never infers the physical world.</strong> A tab moves when someone moves it, and at no other time. No sensor, rotation or orientation change is treated as intent.</p>
+      <p>It does not infer the <em>game</em> either. Whether a round happened is a fact about the table, not about the log &mdash; a round can end with every player on nothing, and the app does not get to tell a table it did not just play one. <strong>End round refuses only where there is a real hazard behind the refusal</strong>: no players, or a round entry still in flight whose pending values would be discarded. It used to refuse until something had been scored since the last marker, which read from the outside as the button locking up for no stated reason, and which locked hardest in exactly the case it was worst at judging. A marker pressed by mistake is what Undo is for.</p>
       <p>Clever inference fails the same way spatial audio does: it is right often enough to be trusted, and when it is wrong the user has no model for why and no obvious way back. A scorekeeper that rearranges itself is worse than one that makes you drag a tab, because dragging always works and is always understood.</p>
     </div>
 

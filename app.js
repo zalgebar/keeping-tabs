@@ -41,7 +41,7 @@ const STORE = "keepingtabs.state";
    its own build. Not a commit hash: a commit cannot contain its own hash,
    and amending one in only ever leaves it pointing at the commit before.
    The commit message names the build, so `git log --grep` maps it back. */
-const BUILD = "0901-13";
+const BUILD = "0901-14";
 
 /* Whether this context can persist at all. Private mode, a data: URL and
    a full quota all throw, and the app has to keep working regardless. */
@@ -913,7 +913,7 @@ function endRound() {
      round and stay in strips with every player already confirmed — a state
      whose only exit is a button that now reads "Everyone is in". */
   if (roundEntry) { roundEntry = false; pending = {}; lockedIn = {}; }
-  if (!log.some(e => e.type === "delta")) return;      // nothing to end
+  if (!players.length) return;
   log.push({ id: uid(), ts: Date.now(), type: "round", n: roundNo() });
   commit();
 }
@@ -1152,14 +1152,21 @@ function paintHub() {
       : "Enter round";
     re.disabled = !players.length;
   }
-  /* The second clause is round entry's: ending mid-entry would bank a
-     partial round, keeping whoever had confirmed and discarding every
-     pending value with no way back, since pending was never in the log to
-     undo. One expression rather than two assignments — a second one further
-     up would simply have been overwritten here. */
+  /* Nothing here about whether anybody scored. Whether a round happened is
+     a fact about the table, not about the log — a round can end with every
+     player on nothing, and the app does not get to tell a table it did not
+     just play one. The old rule refused unless a delta had landed since the
+     last marker, which from the outside read as the button locking up for
+     no stated reason, and it locked hardest in exactly the case it was
+     worst at judging: a round that genuinely ended level.
+
+     What is left is the two cases with a real hazard behind them. No
+     players, and there is no round to end. Mid round-entry, ending would
+     bank a partial round — keeping whoever had confirmed and discarding
+     every pending value with no way back, since pending was never in the
+     log to undo. A marker pressed by mistake is what Undo is for. */
   document.getElementById("endRound").disabled =
-    (!scored || log.length === 0 || log[log.length - 1].type === "round") ||
-    (roundEntry && !allLockedIn());
+    !players.length || (roundEntry && !allLockedIn());
   document.getElementById("diagToggle").textContent =
     BUILD + (storageOk ? "" : "  \u00b7 no storage");
   paintDiag();
