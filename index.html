@@ -255,7 +255,7 @@
      are reached from the strip once you are inside, so the header does not
      have to offer three doors. */
   .panel .pid {
-    display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0;
+    display: flex; align-items: center; gap: 8px; flex: 1 1 0; min-width: 0;
     font: inherit; font-size: 17px; font-weight: 700; text-align: left;
     min-height: 44px; padding: 4px 10px; border: 0; border-radius: 9px;
     background: rgba(var(--anti-rgb),.2); color: var(--ink); cursor: pointer;
@@ -264,7 +264,18 @@
   .panel .pname { flex: 1; min-width: 0; text-align: left;
                   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .tab.size-large .panel .pid { min-height: 54px; }
-  .panel .ptotwrap { display: flex; flex-direction: column; align-items: flex-end; gap: 1px; }
+  /* Even halves. The name used to take the whole row and leave the score
+     whatever was left, which had it backwards: the panel exists to enter a
+     score, and the name is the door out of it. Centered rather than ranged
+     right for the same reason the rounds table is — a decimal column is
+     correct for a ledger and wrong for a scorepad. */
+  .panel .ptotwrap { display: flex; flex-direction: column; align-items: center;
+                     justify-content: center; gap: 1px; flex: 1 1 0; min-width: 0;
+                     /* Same padding as .pid, or the halves are not halves:
+                        a zero flex-basis is a CONTENT-box zero, so .pid's
+                        20px of padding lands on top of its share and the
+                        split comes out 179/159 instead of 169/169. */
+                     padding: 4px 10px; }
   .panel .plab {
     font-size: 10px; letter-spacing: .12em; text-transform: uppercase;
     opacity: .62; line-height: 1; font-weight: 600;
@@ -491,6 +502,20 @@
   table.rounds tr.live td { color: var(--accent); }
   table.rounds tr.tot td { font-weight: 700; border-bottom: 0; background: #232A2D; }
   table.rounds tr.tot td:first-child { background: #232A2D; }
+  /* The rounds table is sized for a phone, where it is right and where the
+     names column has to survive a lot of players. A tablet or a desktop has
+     the room and was getting the phone's type anyway, read from further
+     away. Both dimensions have to clear the bar, or an iPhone in landscape
+     — wider than 700 and nowhere near as tall — would take the tablet
+     sizing it has no height for. Floor is 17px, the name size in a Small
+     scoring panel. */
+  @media (min-width: 700px) and (min-height: 700px) {
+    table.rounds th, table.rounds td { font-size: 19px; padding: 10px 14px; }
+    table.rounds .he { font-size: 26px; }
+    table.rounds .hn { font-size: 17px; }
+    table.rounds th:first-child, table.rounds td:first-child { font-size: 15px; }
+  }
+
   .setting { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 2px; }
   .setting span { font-size: 13px; color: var(--ink-dim); }
   .setting .seg { flex: 0 0 auto; width: 132px; }
@@ -628,7 +653,7 @@ const STORE = "keepingtabs.state";
    its own build. Not a commit hash: a commit cannot contain its own hash,
    and amending one in only ever leaves it pointing at the commit before.
    The commit message names the build, so `git log --grep` maps it back. */
-const BUILD = "0901-10";
+const BUILD = "0901-11";
 
 /* Whether this context can persist at all. Private mode, a data: URL and
    a full quota all throw, and the app has to keep working regardless. */
