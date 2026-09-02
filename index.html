@@ -20,6 +20,22 @@
 <link rel="icon" href="favicon.ico" sizes="64x64">
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
+
+<!-- og:image must be absolute. A relative path silently fails on most
+     scrapers, which is a common way for a card to look broken with nothing
+     visibly wrong in the markup. preview-square.png ships alongside for the
+     clients that crop to 1:1 rather than letterbox. -->
+<meta name="description" content="A tabletop scorekeeper where every player gets a tab on their own edge of the screen, turned to face their seat.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://zalgebar.com/keeping-tabs/">
+<meta property="og:title" content="Keeping Tabs">
+<meta property="og:description" content="A tabletop scorekeeper where every player gets a tab on their own edge of the screen, turned to face their seat.">
+<meta property="og:image" content="https://zalgebar.com/keeping-tabs/preview.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Two overlapping tabs on a dark ground: a blue one reading Keeping, a red one in front reading Tabs.">
+<meta name="twitter:card" content="summary_large_image">
+
 <link rel="stylesheet" href="app.css">
 </head>
 <body>
