@@ -19,14 +19,15 @@
      ref/appicon.svg, which is also where icon-192 and icon-512 come from
      when the manifest lands (#25).
 
-     PNG, not ICO or SVG, and this is the second attempt at #58. iPadOS
-     Safari shows no favicon at all here - a derived "Z" in the tab bar, a
-     globe in the bookmarks bar - while macOS Safari renders the same files
-     correctly. Removing the SVG did not fix it, so the remaining format
-     difference is the ICO itself. zalgebar.com serves a PNG through
-     rel="shortcut icon" and works on the same device, so this mirrors that
-     exactly rather than inventing a third arrangement. favicon.svg and
-     favicon.ico stay in the repo as sources; neither is offered. -->
+     PNG rather than ICO or SVG: the most broadly compatible of the three,
+     and one format means nothing for a browser to choose wrongly between.
+     favicon.svg and favicon.ico stay in the repo as the sources these are
+     cut from; neither is offered.
+
+     iPadOS Safari used to show no icon here at all, because it scopes
+     favicons to the ORIGIN and this app was a subpath of one whose root
+     owned the icon (#58). Its own subdomain fixes that as a side effect —
+     the reason for moving was storage isolation (#59). -->
 <link rel="icon" type="image/png" sizes="48x48" href="icon-48.png">
 <link rel="icon" type="image/png" sizes="32x32" href="icon-32.png">
 <link rel="icon" type="image/png" sizes="16x16" href="icon-16.png">
@@ -37,12 +38,13 @@
      scrapers, which is a common way for a card to look broken with nothing
      visibly wrong in the markup. preview-square.png ships alongside for the
      clients that crop to 1:1 rather than letterbox. -->
+<link rel="canonical" href="https://keepingtabs.zalgebar.com/">
 <meta name="description" content="A tabletop scorekeeper where every player gets a tab on their own edge of the screen, turned to face their seat.">
 <meta property="og:type" content="website">
-<meta property="og:url" content="https://zalgebar.com/keeping-tabs/">
+<meta property="og:url" content="https://keepingtabs.zalgebar.com/">
 <meta property="og:title" content="Keeping Tabs">
 <meta property="og:description" content="A tabletop scorekeeper where every player gets a tab on their own edge of the screen, turned to face their seat.">
-<meta property="og:image" content="https://zalgebar.com/keeping-tabs/preview.png">
+<meta property="og:image" content="https://keepingtabs.zalgebar.com/preview.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta property="og:image:alt" content="Two overlapping tabs on a dark ground: a blue one reading Keeping, a red one in front reading Tabs.">
