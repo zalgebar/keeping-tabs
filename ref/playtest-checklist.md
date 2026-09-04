@@ -1,6 +1,6 @@
 # Play-test checklist
 
-Build: **0901-10** · Tracked in issue #53 · Untracked on purpose — scribble on it.
+Build: **0904-01** · Tracked in issue #53 · Now at **keepingtabs.zalgebar.com**
 
 Date: ________  Game: ________________  Players: ____  Device: ________
 
@@ -67,6 +67,26 @@ Notes: ______________________________________________________________
 - [ ] Does anyone need to correct a previous round — and can they?
 - [ ] Undo after a round ends: does it do what people expect?
 - [ ] Phase 10 / 5 Crowns: does *start round at* behave?
+
+## Does the data survive a week
+
+The one test that needs calendar time rather than a session. Safari deletes
+script-writable storage — localStorage included — after 7 days of *browser
+use* without interaction with the site. Apple's position is that home-screen
+web apps keep their own counter and are exempt, but that statement is from
+2020 and has never been checked here.
+
+- [ ] Installed to the Home Screen from **keepingtabs.zalgebar.com**, play a
+      game, leave it. Open it 8+ days later, having used the iPad normally
+      in between. Scores still there? ______
+- [ ] Same again in a **Safari tab** rather than installed. This one is
+      expected to lose the data — worth confirming, because it tells you what
+      a player who never installs it experiences.
+- [ ] Anything left on the old `zalgebar.com/keeping-tabs/` origin is gone
+      from the app's point of view. Not a bug.
+
+If installed survives and tab does not, the install prompt (#27) stops being
+a nicety and becomes the thing that protects a game in progress.
 
 ## Physical and environmental
 
