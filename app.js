@@ -41,7 +41,7 @@ const STORE = "keepingtabs.state";
    its own build. Not a commit hash: a commit cannot contain its own hash,
    and amending one in only ever leaves it pointing at the commit before.
    The commit message names the build, so `git log --grep` maps it back. */
-const BUILD = "0904-02";
+const BUILD = "0904-03";
 
 /* Whether this context can persist at all. Private mode, a data: URL and
    a full quota all throw, and the app has to keep working regardless. */
@@ -225,10 +225,27 @@ function bestOf(map) {
   return prefs.winCondition === "low" ? lo : hi;
 }
 
+/* How long this origin's storage has actually survived, which is the one
+   thing the eviction question in #53 turns on and the one thing nobody can
+   remember accurately eight days later. firstSeen is written once and never
+   moved; savedAt moves on every write. Both are epoch ms rather than the
+   display string lastSave already carries, because a time of day cannot
+   answer "how many days".
+
+   Still version 1: an older save simply lacks these fields and reads back as
+   zero, so there is nothing to migrate. */
+let firstSeen = 0;
+let savedAt   = 0;
+
 function save() {
   try {
+    const now = Date.now();
+    if (!firstSeen) firstSeen = now;
+    savedAt = now;
     localStorage.setItem(STORE, JSON.stringify({
       version: 1,
+      firstSeen: firstSeen,
+      savedAt: savedAt,
       players: players.map(p => ({ id: p.id, name: p.name, color: p.color, emoji: p.emoji,
                                    edge: p.edge, fraction: p.fraction, mode: p.mode,
                                    textSize: p.textSize })),
@@ -250,6 +267,8 @@ function load() {
     if (!d || d.version !== 1 || !Array.isArray(d.players) || !d.players.length) return false;
     players = d.players;
     log = Array.isArray(d.log) ? d.log : [];
+    firstSeen = typeof d.firstSeen === "number" ? d.firstSeen : 0;
+    savedAt   = typeof d.savedAt   === "number" ? d.savedAt   : 0;
     if (d.prefs) {
       if (typeof d.prefs.ambient === "boolean") prefs.ambient = d.prefs.ambient;
       if (typeof d.prefs.wakeLock === "boolean") prefs.wakeLock = d.prefs.wakeLock;
@@ -1172,6 +1191,17 @@ function paintHub() {
   paintDiag();
 }
 
+/* Coarse on purpose. The question is whether a week passed, not whether
+   ninety seconds did. */
+function ago(ms) {
+  if (!ms) return "-";
+  const s = Math.max(0, Date.now() - ms) / 1000;
+  if (s < 60)    return Math.round(s) + "s";
+  if (s < 3600)  return Math.round(s / 60) + "m";
+  if (s < 86400) return (s / 3600).toFixed(1) + "h";
+  return (s / 86400).toFixed(1) + "d";
+}
+
 function paintDiag() {
   const box = document.getElementById("diagbox");
   if (!box.classList.contains("on")) return;
@@ -1188,6 +1218,7 @@ function paintDiag() {
     "screen  " + screen.width + "x" + screen.height + "\n" +
     "storage " + (storageOk ? "ok" : "<span class='warn'>UNAVAILABLE</span>") +
       "   saved " + lastSave + "\n" +
+    "age     " + ago(firstSeen) + " since first write, " + ago(savedAt) + " since last\n" +
     "state   " + players.length + " players, " + deltas + " scores";
 }
 
@@ -1374,6 +1405,7 @@ sheet.addEventListener("click", e => {
   if (act === "wipe") {
     players = []; log = [];
     try { localStorage.removeItem(STORE); } catch (err) {}
+    firstSeen = 0; savedAt = 0;      // a wipe is a new store, not an old one
     ["Ann", "Rai", "Bo", "Kit"].forEach(n => addPlayer(n));
     autoArrange();
     rebuildTabs(); commit(); paintSheet();

@@ -76,9 +76,16 @@ use* without interaction with the site. Apple's position is that home-screen
 web apps keep their own counter and are exempt, but that statement is from
 2020 and has never been checked here.
 
+The hub's diagnostics box reports this for you — tap the build number at the
+bottom of the hub and read the `age` line: *"8.3d since first write, 2s since
+last"*. No need to remember dates. "Reset scores" keeps that clock running;
+"Start over" restarts it, because that is genuinely a new store.
+
 - [ ] Installed to the Home Screen from **keepingtabs.zalgebar.com**, play a
       game, leave it. Open it 8+ days later, having used the iPad normally
-      in between. Scores still there? ______
+      in between — Safari has to be *used*, the clock counts browser-use days,
+      and don't open the installed app in between or its own counter resets.
+      Scores still there? ______   age line read: ______
 - [ ] Same again in a **Safari tab** rather than installed. This one is
       expected to lose the data — worth confirming, because it tells you what
       a player who never installs it experiences.
