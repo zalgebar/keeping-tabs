@@ -41,7 +41,7 @@ const STORE = "keepingtabs.state";
    its own build. Not a commit hash: a commit cannot contain its own hash,
    and amending one in only ever leaves it pointing at the commit before.
    The commit message names the build, so `git log --grep` maps it back. */
-const BUILD = "0904-04";
+const BUILD = "0919-01";
 
 /* Whether this context can persist at all. Private mode, a data: URL and
    a full quota all throw, and the app has to keep working regardless. */
@@ -236,6 +236,17 @@ function bestOf(map) {
    zero, so there is nothing to migrate. */
 let firstSeen = 0;
 let savedAt   = 0;
+
+/* When this page was loaded, and whether it found a store to load from.
+   Both exist to catch a resumed page. iOS can keep a background tab or app
+   suspended for days, and resuming it brings back the JavaScript state as
+   it was, so the players on screen may be memory rather than storage, and
+   the save on resume writes them straight back. firstSeen can't reveal
+   that because it lives in the same memory. A page loaded seconds ago is a
+   fresh read; one loaded days ago is a resume, and the eviction read (#53)
+   is void. */
+const pageLoadedAt = Date.now();
+let bootedFrom = "?";
 
 function save() {
   try {
@@ -1219,7 +1230,8 @@ function paintDiag() {
     "storage " + (storageOk ? "ok" : "<span class='warn'>UNAVAILABLE</span>") +
       "   saved " + lastSave + "\n" +
     "age     " + ago(firstSeen) + " since first write, " + ago(savedAt) + " since last\n" +
-    "state   " + players.length + " players, " + deltas + " scores";
+    "state   " + players.length + " players, " + deltas + " scores\n" +
+    "page    loaded " + ago(pageLoadedAt) + " ago, from " + bootedFrom;
 }
 
 document.getElementById("diagToggle").addEventListener("click", () => {
@@ -1525,7 +1537,8 @@ window.addEventListener("orientationchange", () =>
 
 probeStorage();
 readSafeInsets();
-if (!load()) {
+bootedFrom = load() ? "storage" : "nothing";
+if (bootedFrom === "nothing") {
   ["Ann", "Rai", "Bo", "Kit"].forEach(n => addPlayer(n));
   autoArrange();          // fresh game: spread evenly
 }
